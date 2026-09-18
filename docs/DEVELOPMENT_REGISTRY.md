@@ -250,3 +250,168 @@ DeanWay Labs development follows: concept -> prototype -> personal test -> keep/
 - Qwen model initialization on Motorola: NOT VERIFIED.
 - Qwen conversation on Motorola: NOT VERIFIED.
 - Runtime RAM/load time/latency/stability/heat: NOT VERIFIED.
+
+
+## 2026-09-18 - Alpha 0.1 Qwen picker, CI recovery, and green build
+
+Status: SOURCE -> UNIT TESTS -> DEBUG APK -> ARTIFACT = VERIFIED PASS / QWEN PHYSICAL RUNTIME = NOT VERIFIED
+
+### Starting state and objective
+The previously verified diagnostic QuietOS shell could install and launch on the target Motorola, but it only displayed the configured assistant identity `Qwen`. It did not select, load, or run the approximately 977 MB user-supplied Qwen LiteRT-LM model. The next Alpha 0.1 objective was therefore narrowed to a functional model-selection/load/conversation path and a reproducible green CI build.
+
+### Physical diagnostic-shell evidence
+The earlier diagnostic APK was physically installed and launched on Jon Dean's Motorola. The observed screen rendered:
+- `QuietOS Alpha 0.1`
+- `Assistant: Qwen`
+- `Attention Engine: foundation ready`
+
+Physical evidence classification:
+- APK install: PASS.
+- App launch: PASS.
+- Diagnostic shell rendering: PASS.
+- AssistantProfile personal display name `Qwen`: PASS.
+- Qwen model selection/load/inference: NOT VERIFIED.
+- Qwen runtime RAM/load time/latency/stability: NOT VERIFIED.
+- Attention Engine runtime behavior on this build: NOT VERIFIED.
+
+Process failure recorded: an earlier GitHub Actions artifact ZIP was initially described as though it were the raw APK. That was misleading and caused Android to offer inappropriate handlers such as Termux/Google. Corrective rule: an Actions artifact is a ZIP archive unless the actual APK has been extracted and verified. Future physical-test handoffs must provide the actual APK and must state only the test objective that build can perform.
+
+### Functional Alpha model-test UI implemented
+Commit `002478f535c54bd16065a9637fa0666148e63d45`
+Message: `Alpha 0.1: add Qwen model picker and conversation test UI`
+
+Changed `MainActivity.kt` from the diagnostic-only shell to a deliberately minimal functional test interface:
+- Android OpenDocument model picker.
+- Import of the selected model into app-private `filesDir/models`.
+- Model status reporting for import, load, READY and failure.
+- Calls to `LiteRtQwenModel.load()`.
+- Basic prompt field, Send button and transcript.
+- Calls to `LiteRtQwenModel.send()`.
+- Full-response elapsed-time display.
+- Model close during Activity destruction.
+- No generated graphics and no nonessential presentation work.
+
+Storage tradeoff: the current implementation copies the selected model into app-private storage because the adapter currently supplies a filesystem path to LiteRT-LM. With the reported model size of approximately 977 MB, this can consume roughly another model-sized allocation of storage. This is accepted only as an Alpha proof path and must be reassessed after runtime proof. Reinstall/removal of app data can remove the private copy.
+
+Known implementation limitations preserved for follow-up:
+- Current model file copy is performed from a lifecycle coroutine without an explicit `Dispatchers.IO` wrapper and should be moved off the main dispatcher before physical stress testing.
+- `takePersistableUriPermission` should be removed or safely guarded because immediate private copying makes persistent URI access unnecessary and not every provider guarantees that grant.
+- Selected model validation is minimal.
+- Send-button READY comparison currently uses the enum name string rather than direct `ModelState.READY`.
+- The adapter creates a new LiteRT-LM conversation for each send, so conversational history/multi-turn model context is not yet proven.
+- `onDestroy` model close may require lifecycle/race hardening if load or inference is active.
+These limitations do not invalidate the CI build result, but they remain unverified physical-runtime risks and must not be hidden by the green build.
+
+### Android lifecycle support
+Commit `c5e6f050063b382f5b11bd0917191dd4e808837d`
+Message: `Alpha 0.1: add activity lifecycle support for Qwen loader`
+
+Added:
+- `androidx.activity:activity-ktx:1.10.1`
+- `androidx.lifecycle:lifecycle-runtime-ktx:2.8.7`
+
+Purpose: support the Activity result contract and lifecycle-scoped coroutine execution used by the model picker/load test path.
+
+### CI failure 002 - LiteRT-LM/Kotlin metadata incompatibility
+GitHub Actions Run #10:
+- Run ID: `35383930880`
+- Head SHA: `c5e6f050063b382f5b11bd0917191dd4e808837d`
+- Conclusion: FAILURE.
+- Failed step: Unit tests / Kotlin compilation.
+- Debug APK: SKIPPED.
+- Artifact upload: SKIPPED.
+
+Exact root evidence from CI: Maven resolved LiteRT-LM 0.17.1, whose Kotlin metadata was 2.4.0, while the project Kotlin compiler was 2.0.21 and expected metadata 2.0.0. The compiler therefore rejected LiteRT-LM and associated Kotlin 2.4-era metadata before the Qwen source could be meaningfully compiled.
+
+Fix commit `bff3ddc573c04cabb1d6a53ef1050e651076cee5`
+Message: `Fix: align Kotlin compiler with LiteRT-LM 0.17.1`
+- Root Kotlin Android plugin changed from 2.0.21 to 2.4.0.
+
+Fix commit `c760c34ed8e097de64a831c198bf64ee2371add6`
+Message: `Fix: pin LiteRT-LM runtime for reproducible Alpha build`
+- Replaced `litertlm-android:latest.release` with explicit `litertlm-android:0.17.1`.
+- Reason: reproducible builds must not silently change runtime versions when a new Maven release appears.
+
+### CI failure 003 - Kotlin 2.4 JVM-target DSL migration
+GitHub Actions Run #12:
+- Run ID: `35389772204`
+- Head SHA: `c760c34ed8e097de64a831c198bf64ee2371add6`
+- Conclusion: FAILURE.
+- Failed step: Unit tests / build-script compilation.
+- Debug APK: SKIPPED.
+- Artifact upload: SKIPPED.
+
+Exact CI symptom:
+`Using 'jvmTarget: String' is an error. Please migrate to the compilerOptions DSL.`
+
+Root cause: upgrading the Kotlin Gradle plugin to 2.4.0 solved the LiteRT-LM metadata incompatibility but made the older `kotlinOptions { jvmTarget = "17" }` syntax invalid.
+
+Fix commit `2ecbd3fcb97ac43ecfb2d2c3e528e5cb5644f22b`
+Message: `Fix: migrate Kotlin JVM target to compilerOptions DSL`
+
+Changed `app/build.gradle.kts`:
+- imported `org.jetbrains.kotlin.gradle.dsl.JvmTarget`;
+- removed the obsolete `kotlinOptions` block;
+- added `kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_17) } }`;
+- retained Java source/target compatibility at Java 17.
+
+### CI verification - Run #13 GREEN
+GitHub Actions Run #13:
+- Run ID: `35395321316`
+- Head SHA: `2ecbd3fcb97ac43ecfb2d2c3e528e5cb5644f22b`
+- Workflow: `QuietOS Android CI`
+- Conclusion: SUCCESS.
+
+Verified successful job steps:
+1. Job setup: PASS.
+2. Checkout: PASS.
+3. Java setup: PASS.
+4. Gradle setup: PASS.
+5. Unit tests: PASS.
+6. Debug APK assembly: PASS.
+7. Artifact upload: PASS.
+8. Job completion: PASS.
+
+Run #13 artifact evidence:
+- Artifact name: `QuietOS-alpha-debug`
+- Artifact ID: `10568060072`
+- Archive size: 25,944,111 bytes.
+- SHA-256 artifact digest: `924a375f2b0148a2de63ed7e1229044906502f66803d888a3cb0a94ebded04cf`.
+- Created: 2026-09-18T21:12:08Z.
+- Expiration: 2026-12-17T21:09:43Z.
+- Expired at verification time: false.
+
+### Regression and evidence boundary
+Run #13 establishes:
+- Current source compiles under the aligned Kotlin/LiteRT-LM toolchain: PASS.
+- Existing unit tests: PASS.
+- Debug APK assembly: PASS.
+- GitHub artifact creation/upload: PASS.
+- Reproducible LiteRT-LM dependency is pinned to 0.17.1: VERIFIED in source.
+
+Run #13 does NOT establish:
+- APK installation/update compatibility on the target Motorola.
+- Qwen model selection from the Motorola.
+- Successful import of the approximately 977 MB model.
+- LiteRT-LM engine initialization on the Motorola.
+- First local Qwen response.
+- Multi-turn conversation continuity.
+- Runtime RAM usage, load time, inference latency, sustained stability, heat, background survival, lock/unlock behavior, app-switch behavior, process-kill/reload behavior.
+- Attention Engine integration with the live Qwen runtime.
+
+All items above remain NOT VERIFIED until physical evidence is collected.
+
+### Next Alpha 0.1 gate
+Before expanding QuietOS scope:
+1. Harden the model import path for background I/O and URI-provider behavior.
+2. Preserve the green CI baseline after those changes.
+3. Extract and verify the actual APK from the successful Actions artifact before physical handoff.
+4. Install/update on the Motorola.
+5. Select the existing Qwen LiteRT-LM model.
+6. Verify Qwen reaches READY and record actual load time.
+7. Send a local prompt and record the first successful response and latency.
+8. Measure RAM and stability under repeated use, app switching, lock/unlock and reload.
+9. Record failures exactly and fix/regression-test them.
+10. Only after the local runtime is physically proven begin layering the Attention Engine around Qwen.
+
+Alpha 0.1 remains intentionally protected from Network/Pro, face/lip-sync, contextual visual presentation, and broad tool integration until this gate is passed.
