@@ -502,3 +502,25 @@ NOT YET VERIFIED:
 
 ### Next gate
 Do not expand into the Attention Engine yet. Instrument inference so time-to-first-token, total generation time, chunk count and approximate output size are visible. Then establish a repeated-prompt baseline and investigate supported runtime/backend/model optimizations using evidence rather than guesses.
+
+
+## 2026-09-18 - Alpha 0.1 inference wiring telemetry increment
+
+### Starting evidence
+Run #18 physically proved local Qwen inference and saved-model restart persistence on the target Motorola. The first measured complete response took 62,346 ms. The existing UI status "generating" only marked the application call boundary and did not expose where the delay occurred inside LiteRT-LM generation.
+
+### Changes
+- LocalModel.send now returns a typed GenerationResult with GenerationMetrics.
+- LiteRtQwenModel records the timestamp immediately before conversation generation, the first emitted LiteRT-LM response chunk, and completion.
+- Metrics: time to first chunk, generation time after first chunk, total runtime, chunk count, and output character count.
+- MainActivity exposes those wiring measurements after each successful response.
+
+### Reason
+This separates startup/prompt-processing latency from post-first-output generation throughput. It prevents optimization by guesswork and establishes evidence for the 62-second latency investigation.
+
+### Expected physical evidence
+The next Motorola response should display:
+[wiring: first chunk X ms | after first Y ms | total Z ms | chunks N | chars C]
+
+### Evidence boundary
+Source instrumentation is committed. CI and physical-device results are NOT YET VERIFIED for this increment. No backend or model optimization has been applied yet.
