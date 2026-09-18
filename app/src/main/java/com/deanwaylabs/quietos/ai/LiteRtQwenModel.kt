@@ -6,6 +6,7 @@ import com.google.ai.edge.litertlm.EngineConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 
 class LiteRtQwenModel : LocalModel {
     @Volatile
@@ -38,15 +39,20 @@ class LiteRtQwenModel : LocalModel {
         }
     }
 
-    override suspend fun send(message: String): String = withContext(Dispatchers.IO) {
+    override suspend fun send(message: String): String {
         val active = checkNotNull(engine) { "Local model is not loaded." }
         val output = StringBuilder()
-        active.createConversation().use { conversation ->
-            conversation.sendMessageAsync(message).collect { chunk ->
-                output.append(chunk)
+        var chunks = 0
+        withTimeout(180_000L) {
+            active.createConversation().use { conversation ->
+                conversation.sendMessageAsync(message).collect { chunk ->
+                    chunks++
+                    output.append(chunk)
+                }
             }
         }
-        output.toString()
+        check(chunks > 0) { "LiteRT-LM completed without producing response chunks." }
+        return output.toString()
     }
 
     override fun close() {
