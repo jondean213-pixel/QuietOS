@@ -415,3 +415,53 @@ Before expanding QuietOS scope:
 10. Only after the local runtime is physically proven begin layering the Attention Engine around Qwen.
 
 Alpha 0.1 remains intentionally protected from Network/Pro, face/lip-sync, contextual visual presentation, and broad tool integration until this gate is passed.
+
+
+## 2026-09-18 - Motorola physical Qwen test failure and corrective increment
+
+### Physical evidence from Jon
+Build from CI Run #15 installed and launched on the target Motorola. Two user-visible failures were reported:
+1. Every app launch required selecting/importing the Qwen model again.
+2. After Qwen was selected/loaded, sending a message produced no visible reply.
+
+This is a physical-runtime FAIL for conversational Qwen operation. It does not invalidate Run #15's compile/unit-test/APK evidence.
+
+### Root cause confirmed for repeated model selection
+Inspection of MainActivity showed that import copied the selected .litertlm file into app-private filesDir/models, but onCreate never searched that directory or reloaded the existing copy. Therefore the app always presented Qwen as not loaded after process restart.
+
+### Corrective source changes
+Commit 760f6a2d35c16bb77c68a6bb2e5d9de6b5ee860b
+Message: Alpha 0.1: persist Qwen model and expose inference diagnostics
+- Startup now searches app-private models for the newest .litertlm file and attempts to load it automatically.
+- Manual model selection remains available to replace a failed or different model.
+- Send now visibly reports generation in progress.
+- Empty responses are surfaced explicitly.
+- Generation exceptions now expose exception class and status instead of appearing as silence.
+- Successful response updates status with measured response latency.
+
+Commit c6db7a592f3f24e266b73da5de1e59d557b09481
+Message: Alpha 0.1: diagnose silent Qwen generation failures
+- Inference now counts LiteRT-LM response chunks.
+- Zero response chunks becomes an explicit failure instead of a silent empty result.
+- A 180-second timeout prevents an indefinitely silent generation attempt.
+- sendMessageAsync remains the LiteRT-LM Conversation Flow API documented by the upstream Kotlin runtime.
+
+### Evidence boundary
+VERIFIED from physical test:
+- Run #15 APK installs/launches on Motorola.
+- User can reach the model selection/load path.
+- Previous build fails persistence across relaunch.
+- Previous build fails to produce a visible Qwen reply.
+
+NOT YET VERIFIED:
+- automatic reload of saved Qwen after these corrective commits;
+- whether LiteRT-LM emits chunks, returns empty, throws, or times out on this Motorola/model combination;
+- successful first local Qwen response;
+- RAM/latency/stability targets.
+
+### Next gate
+CI must pass these exact corrective commits. Then extract the actual APK and perform a second Motorola test. The second test must record:
+1. saved-model automatic load after relaunch;
+2. exact status/error after Send;
+3. successful response and latency if generation works.
+No Attention Engine expansion until local Qwen inference is physically proven.
