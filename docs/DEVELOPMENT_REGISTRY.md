@@ -181,3 +181,14 @@ For every meaningful implementation increment, this registry will record:
 12. Version/build identifier when applicable.
 
 No future QuietOS milestone is considered complete merely because source was written.
+
+
+## 2026-09-18 - CI failure 001: JVM target mismatch
+
+Evidence: GitHub Actions reached Android compilation and failed at app compileDebugKotlin because Java targeted JVM 1.8 while Kotlin targeted JVM 17. Unit tests could not complete; APK build and artifact upload were skipped.
+
+Root cause: app/build.gradle.kts did not explicitly align Java compile compatibility with Kotlin JVM 17.
+
+Fix: Java source and target compatibility were set to Java 17, and Kotlin jvmTarget was explicitly set to 17. Fix commit: a7b1ed0310e6934584bfda127d3f5866352831b2.
+
+Verification after fix: root cause VERIFIED from CI logs; source fix VERIFIED committed; post-fix tests and APK remain PENDING CI; physical-device behavior remains NOT VERIFIED.
