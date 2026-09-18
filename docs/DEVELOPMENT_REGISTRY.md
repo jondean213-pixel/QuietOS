@@ -192,3 +192,61 @@ Root cause: app/build.gradle.kts did not explicitly align Java compile compatibi
 Fix: Java source and target compatibility were set to Java 17, and Kotlin jvmTarget was explicitly set to 17. Fix commit: a7b1ed0310e6934584bfda127d3f5866352831b2.
 
 Verification after fix: root cause VERIFIED from CI logs; source fix VERIFIED committed; post-fix tests and APK remain PENDING CI; physical-device behavior remains NOT VERIFIED.
+
+
+## 2026-09-18 - Alpha 0.1 local-model runtime adapter begins
+
+Status: SOURCE IMPLEMENTED / CI AND PHYSICAL RUNTIME VERIFICATION PENDING
+
+### Scope gate
+Alpha 0.1 is deliberately narrow. The next acceptance question is: can QuietOS run a useful local conversational AI reliably on the target Motorola without unacceptable RAM pressure?
+
+Order is locked:
+1. Local Qwen runtime.
+2. Motorola physical load/conversation test.
+3. Measure load time, RAM pressure, response latency, sustained stability, repeat/reload behavior and heat.
+4. Only after the runtime passes, layer the Attention Engine around it.
+
+Network/Pro, face/lip-sync, contextual visual presentation and large tool ecosystems remain outside this Alpha gate.
+
+### Previous CI evidence now recorded
+GitHub Actions runs for commits a7b1ed0310e6934584bfda127d3f5866352831b2 and bc507e4db58995c2a46e0e8b9911ca6e29d5dee9 completed successfully. Unit tests, debug APK assembly and artifact upload passed. This verifies the JVM-17 build fix. It does not verify physical-device behavior or Qwen runtime behavior.
+
+### Runtime architecture added
+Created:
+- `ai/LocalModel.kt`
+- `ai/LiteRtQwenModel.kt`
+
+The LocalModel interface is the replaceable model boundary. Qwen is the first runtime candidate; the proven lightweight Gemma approach remains the fallback without redesigning QuietOS.
+
+LiteRtQwenModel:
+- uses the official LiteRT-LM Kotlin Engine API;
+- initializes on Dispatchers.IO so model loading does not block the Android UI thread;
+- starts with CPU backend for the first controlled baseline;
+- records model load time;
+- exposes explicit UNLOADED/LOADING/READY/ERROR state;
+- creates a conversation and streams response chunks;
+- explicitly closes the engine so native model resources can be released.
+
+Added the LiteRT-LM Android Maven runtime and Android coroutines dependency to the app module.
+
+### RAM rule
+Qwen must not be treated as an always-needed OS service. QuietOS should handle deterministic work itself and invoke model reasoning only when understanding is required. The model boundary must support unloading/replacement. User reports the Qwen model file already on the Motorola is approximately 977 MB; that is user-supplied file-size evidence, not runtime-RAM evidence.
+
+### Product-development rule
+DeanWay Labs development follows: concept -> prototype -> personal test -> keep/modify/cut -> product candidate. Experimental features are allowed during personal testing, but they do not become product requirements without evidence of value and acceptable performance/complexity cost.
+
+### Future requirements preserved but NOT Alpha 0.1
+- Contextual Visual Presentation: relevant cards/images synchronized with spoken responses.
+- Qwen personal personality: familiar, sarcastic and playful in companion context; professional during work; direct and serious in critical contexts.
+- Personality never overrides permissions. Qwen may be rebellious in conversation, not in authorization.
+- Commercial assistant identity remains configurable and separate from Jon's personal Qwen profile.
+
+### Verification state
+- Model abstraction source: IMPLEMENTED.
+- LiteRT-LM adapter source: IMPLEMENTED.
+- Dependency resolution/build after runtime addition: PENDING CI.
+- Model selection from the existing Motorola file: NOT YET IMPLEMENTED.
+- Qwen model initialization on Motorola: NOT VERIFIED.
+- Qwen conversation on Motorola: NOT VERIFIED.
+- Runtime RAM/load time/latency/stability/heat: NOT VERIFIED.
