@@ -131,14 +131,17 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val started = System.nanoTime()
-                val result = model.send(message)\n                val reply = result.text
+                val result = model.send(message)
+                val reply = result.text
                 val elapsed = (System.nanoTime() - started) / 1_000_000
                 if (reply.isBlank()) {
                     transcript.append("[EMPTY RESPONSE]\n")
                     status.text = "Qwen generation FAILED: empty response after ${elapsed} ms"
                 } else {
                     transcript.append(reply+"\n[response "+elapsed+" ms]\n")
-                    status.text = "Qwen READY | last response ${elapsed} ms"
+                    val m = result.metrics
+                    transcript.append("[wiring: first chunk ${m.timeToFirstChunkMs} ms | after first ${m.generationAfterFirstChunkMs} ms | total ${m.totalTimeMs} ms | chunks ${m.chunkCount} | chars ${m.outputChars}]\n")
+                    status.text = "Qwen READY | first ${m.timeToFirstChunkMs} ms | total ${m.totalTimeMs} ms"
                 }
             } catch (t: Throwable) {
                 transcript.append("[FAILED: "+t.javaClass.simpleName+": "+(t.message ?: "no message")+"]\n")
