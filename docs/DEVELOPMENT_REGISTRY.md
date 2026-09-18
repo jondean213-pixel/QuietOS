@@ -465,3 +465,40 @@ CI must pass these exact corrective commits. Then extract the actual APK and per
 2. exact status/error after Send;
 3. successful response and latency if generation works.
 No Attention Engine expansion until local Qwen inference is physically proven.
+
+
+## 2026-09-18 - Motorola Run #18: FIRST LOCAL QWEN RESPONSE PASS
+
+### Physical evidence
+Jon installed the Run #18 APK on the target Motorola and performed the corrected Alpha 0.1 test.
+
+Results:
+- Saved-model persistence across app restart: PASS. QuietOS reopened without requiring the Qwen .litertlm model to be selected/imported again.
+- Local Qwen generation: PASS. Qwen produced a reply through QuietOS/LiteRT-LM on the Motorola.
+- Measured response elapsed time reported by QuietOS: 62,346 ms (62.346 seconds).
+- Response latency at this stage: FAIL for acceptable interactive use / optimization required.
+
+This is the first physical proof in the project that the complete local path can produce a response:
+QuietOS -> LiteRT-LM -> local Qwen model -> Motorola -> generated reply.
+
+### Evidence boundary
+VERIFIED:
+- local model persistence/reload works on the target Motorola;
+- LiteRT-LM engine can execute the selected Qwen model on the target Motorola;
+- local inference can produce a visible response;
+- current measured end-to-end response time for this test was 62,346 ms.
+
+NOT YET VERIFIED:
+- time to first token separately from total generation time;
+- tokens per second;
+- prompt/output token counts;
+- peak and sustained RAM;
+- repeated-turn latency;
+- thermal behavior;
+- sustained stability;
+- app switching, lock/unlock and process-reload behavior;
+- whether CPU backend is the best supported backend for this Motorola/model;
+- multi-turn conversation continuity.
+
+### Next gate
+Do not expand into the Attention Engine yet. Instrument inference so time-to-first-token, total generation time, chunk count and approximate output size are visible. Then establish a repeated-prompt baseline and investigate supported runtime/backend/model optimizations using evidence rather than guesses.
