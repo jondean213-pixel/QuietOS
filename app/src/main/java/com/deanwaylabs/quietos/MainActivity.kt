@@ -1,17 +1,128 @@
 package com.deanwaylabs.quietos
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
+import android.view.View
+import android.widget.Button
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
+import com.deanwaylabs.quietos.ai.LiteRtQwenModel
+import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileOutputStream
 
 class MainActivity : AppCompatActivity() {
+    private val model = LiteRtQwenModel()
+    private lateinit var status: TextView
+    private lateinit var transcript: TextView
+    private lateinit var input: EditText
+    private lateinit var send: Button
+    private lateinit var choose: Button
+
+    private val picker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            lifecycleScope.launch { importAndLoad(uri) }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val profile = AssistantProfile.personal()
-        setContentView(TextView(this).apply {
-            text = "QuietOS Alpha 0.1\nAssistant: ${profile.displayName}\nAttention Engine: foundation ready"
-            textSize = 20f
-            setPadding(48, 72, 48, 48)
+        title = "QuietOS Alpha 0.1"
+        setContentView(buildUi())
+    }
+
+    private fun buildUi(): View {
+        val pad = (20 * resources.displayMetrics.density).toInt()
+        val column = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, pad, pad, pad)
+        }
+        column.addView(TextView(this).apply {
+            text = "QuietOS Alpha 0.1\nAssistant: Qwen"
+            textSize = 22f
         })
+        status = TextView(this).apply { text = "Qwen status: not loaded" }
+        choose = Button(this).apply {
+            text = "Choose Qwen model"
+            setOnClickListener { picker.launch(arrayOf("*/*")) }
+        }
+        transcript = TextView(this).apply { text = "Conversation will appear here.\n" }
+        input = EditText(this).apply { hint = "Message Qwen" }
+        send = Button(this).apply {
+            text = "Send"
+            isEnabled = false
+            setOnClickListener { sendMessage() }
+        }
+        column.addView(status)
+        column.addView(choose)
+        column.addView(transcript)
+        column.addView(input)
+        column.addView(send)
+        return ScrollView(this).apply { addView(column) }
+    }
+
+    private suspend fun importAndLoad(uri: Uri) {
+        choose.isEnabled = false
+        send.isEnabled = false
+        status.text = "Qwen status: importing model..."
+        try {
+            val displayName = queryDisplayName(uri) ?: "qwen-model.litertlm"
+            val modelDir = File(filesDir, "models").apply { mkdirs() }
+            val local = File(modelDir, displayName)
+            contentResolver.openInputStream(uri).use { source ->
+                requireNotNull(source) { "Could not open selected model." }
+                FileOutputStream(local).use { target -> source.copyTo(target, 1024 * 1024) }
+            }
+            status.text = "Qwen status: loading "+local.name+"..."
+            val metrics = model.load(local.absolutePath)
+            status.text = "Qwen READY | load "+metrics.loadTimeMs+" ms"
+            transcript.append("\nQuietOS: Qwen loaded locally.\n")
+            send.isEnabled = true
+        } catch (t: Throwable) {
+            status.text = "Qwen load FAILED: "+(t.message ?: t.javaClass.simpleName)
+            transcript.append("\nQuietOS: model load failed.\n")
+        } finally {
+            choose.isEnabled = true
+        }
+    }
+
+    private fun sendMessage() {
+        val message = input.text.toString().trim()
+        if (message.isEmpty()) return
+        input.text.clear()
+        send.isEnabled = false
+        transcript.append("\nJon: "+message+"\nQwen: ")
+        lifecycleScope.launch {
+            try {
+                val started = System.nanoTime()
+                val reply = model.send(message)
+                val elapsed = (System.nanoTime() - started) / 1_000_000
+                transcript.append(reply+"\n[response "+elapsed+" ms]\n")
+            } catch (t: Throwable) {
+                transcript.append("[FAILED: "+(t.message ?: t.javaClass.simpleName)+"]\n")
+            } finally {
+                send.isEnabled = model.state.name == "READY"
+            }
+        }
+    }
+
+    private fun queryDisplayName(uri: Uri): String? {
+        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) return cursor.getString(0)
+        }
+        return null
+    }
+
+    override fun onDestroy() {
+        model.close()
+        super.onDestroy()
     }
 }
