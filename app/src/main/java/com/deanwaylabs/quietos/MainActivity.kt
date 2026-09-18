@@ -1,6 +1,5 @@
 package com.deanwaylabs.quietos
 
-import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
@@ -14,7 +13,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.deanwaylabs.quietos.ai.LiteRtQwenModel
+import com.deanwaylabs.quietos.ai.ModelState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 
@@ -28,7 +30,6 @@ class MainActivity : AppCompatActivity() {
 
     private val picker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             lifecycleScope.launch { importAndLoad(uri) }
         }
     }
@@ -75,11 +76,16 @@ class MainActivity : AppCompatActivity() {
         status.text = "Qwen status: importing model..."
         try {
             val displayName = queryDisplayName(uri) ?: "qwen-model.litertlm"
-            val modelDir = File(filesDir, "models").apply { mkdirs() }
-            val local = File(modelDir, displayName)
-            contentResolver.openInputStream(uri).use { source ->
-                requireNotNull(source) { "Could not open selected model." }
-                FileOutputStream(local).use { target -> source.copyTo(target, 1024 * 1024) }
+            require(displayName.endsWith(".litertlm", ignoreCase = true)) { "Select a .litertlm model file." }
+            val local = withContext(Dispatchers.IO) {
+                val modelDir = File(filesDir, "models").apply { mkdirs() }
+                val destination = File(modelDir, displayName)
+                contentResolver.openInputStream(uri).use { source ->
+                    requireNotNull(source) { "Could not open selected model." }
+                    FileOutputStream(destination).use { target -> source.copyTo(target, 1024 * 1024) }
+                }
+                require(destination.length() > 0L) { "Imported model is empty." }
+                destination
             }
             status.text = "Qwen status: loading "+local.name+"..."
             val metrics = model.load(local.absolutePath)
@@ -109,7 +115,7 @@ class MainActivity : AppCompatActivity() {
             } catch (t: Throwable) {
                 transcript.append("[FAILED: "+(t.message ?: t.javaClass.simpleName)+"]\n")
             } finally {
-                send.isEnabled = model.state.name == "READY"
+                send.isEnabled = model.state == ModelState.READY
             }
         }
     }
