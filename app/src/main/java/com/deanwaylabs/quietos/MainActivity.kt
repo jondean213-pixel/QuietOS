@@ -38,6 +38,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         title = "QuietOS Alpha 0.1"
         setContentView(buildUi())
+        lifecycleScope.launch { autoLoadExistingModel() }
     }
 
     private fun buildUi(): View {
@@ -68,6 +69,26 @@ class MainActivity : AppCompatActivity() {
         column.addView(input)
         column.addView(send)
         return ScrollView(this).apply { addView(column) }
+    }
+
+    private suspend fun autoLoadExistingModel() {
+        val existing = withContext(Dispatchers.IO) {
+            File(filesDir, "models").listFiles()?.filter { it.isFile && it.extension.equals("litertlm", true) }?.maxByOrNull { it.lastModified() }
+        } ?: return
+        choose.isEnabled = false
+        send.isEnabled = false
+        status.text = "Qwen status: loading saved ${existing.name}..."
+        try {
+            val metrics = model.load(existing.absolutePath)
+            status.text = "Qwen READY | saved model | load ${metrics.loadTimeMs} ms"
+            transcript.append("\nQuietOS: saved Qwen model loaded automatically.\n")
+            send.isEnabled = true
+        } catch (t: Throwable) {
+            status.text = "Saved Qwen load FAILED: ${t.message ?: t.javaClass.simpleName}"
+            transcript.append("\nQuietOS: saved model failed to load. Choose Qwen model to replace it.\n")
+        } finally {
+            choose.isEnabled = true
+        }
     }
 
     private suspend fun importAndLoad(uri: Uri) {
@@ -106,14 +127,22 @@ class MainActivity : AppCompatActivity() {
         input.text.clear()
         send.isEnabled = false
         transcript.append("\nJon: "+message+"\nQwen: ")
+        status.text = "Qwen status: generating..."
         lifecycleScope.launch {
             try {
                 val started = System.nanoTime()
                 val reply = model.send(message)
                 val elapsed = (System.nanoTime() - started) / 1_000_000
-                transcript.append(reply+"\n[response "+elapsed+" ms]\n")
+                if (reply.isBlank()) {
+                    transcript.append("[EMPTY RESPONSE]\n")
+                    status.text = "Qwen generation FAILED: empty response after ${elapsed} ms"
+                } else {
+                    transcript.append(reply+"\n[response "+elapsed+" ms]\n")
+                    status.text = "Qwen READY | last response ${elapsed} ms"
+                }
             } catch (t: Throwable) {
-                transcript.append("[FAILED: "+(t.message ?: t.javaClass.simpleName)+"]\n")
+                transcript.append("[FAILED: "+t.javaClass.simpleName+": "+(t.message ?: "no message")+"]\n")
+                status.text = "Qwen generation FAILED: "+t.javaClass.simpleName
             } finally {
                 send.isEnabled = model.state == ModelState.READY
             }
