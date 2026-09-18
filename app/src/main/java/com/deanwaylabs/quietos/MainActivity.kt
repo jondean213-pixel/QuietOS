@@ -131,7 +131,7 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val started = System.nanoTime()
-                val reply = model.send(message)
+                val result = model.send(message)\n                val reply = result.text
                 val elapsed = (System.nanoTime() - started) / 1_000_000
                 if (reply.isBlank()) {
                     transcript.append("[EMPTY RESPONSE]\n")
