@@ -14,10 +14,10 @@ Attention classes:
 - Noise -> Quiet
 
 ## Product identity
-QuietOS is the production product name. Assistant display identity is configurable. Jon Dean's personal build uses **Qwen**.
+QuietOS is the production product name. Assistant display identity is configurable. Jon Dean's personal build uses **Gemma**.
 
 ## Local AI
-Current physical-test candidate: `Qwen3-1.7B_dynamic_wi4b32_afp32.litertlm` via LiteRT-LM. It is not considered verified until benchmarked on the target Android device.
+Current leading physical-test candidate: **Gemma 3 1B IT INT4** via LiteRT-LM. The earlier Qwen3 1.7B candidate is retained as benchmark history, but Gemma is now the selected personal-assistant identity and leading runtime candidate based on substantially better Motorola latency evidence.
 
 ## Engineering rules
 - Local-first.
