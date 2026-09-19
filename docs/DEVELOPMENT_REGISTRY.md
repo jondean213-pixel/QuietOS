@@ -544,3 +544,35 @@ This test localizes the latency. The delay is not exclusively startup/prefill: f
 
 ### Next gate
 Do not expand Alpha scope. Measure/reduce decode/generation cost and verify RAM/stability before Attention Engine integration. Preserve this Run #25 measurement as the first internal wiring telemetry baseline.
+
+
+## Alpha 0.1 — First physical RAM-pressure baseline
+
+### Test method
+Jon measured Android memory from Termux/Debian on the same Motorola used for QuietOS physical testing. QuietOS/Qwen was measured closed, loaded/idle, and at three points during a generation. Values below are direct `free -m` observations. Debian/proot was present for all snapshots, so this is a comparative device-level baseline rather than isolated QuietOS process RSS.
+
+### Measurements
+| State | Used RAM MB | Free RAM MB | Available MB | Swap used MB |
+|---|---:|---:|---:|---:|
+| QuietOS/Qwen closed baseline | 2131 | 188 | 1197 | 1232 |
+| Qwen loaded / idle | 2670 | 112 | 774 | 1284 |
+| Generation — early/send sample | 2505 | 150 | 722 | 2337 |
+| Generation — ~15 s sample | 2485 | 164 | 745 | 2405 |
+| Generation — later sample | 2237 | 136 | 975 | 2670 |
+
+### Evidence / interpretation
+- Loading Qwen idle coincided with +539 MB used physical RAM versus baseline and a 423 MB reduction in MemAvailable.
+- During generation, swap usage rose dramatically: from 1,284 MB loaded/idle to as high as 2,670 MB in the later sample, an increase of about 1,386 MB.
+- Physical used RAM did not monotonically increase during generation; Android reclaimed/cache-managed memory while swap consumption rose.
+- This is direct evidence of substantial device-level memory pressure during Qwen inference on this Motorola.
+- It does NOT yet prove that swap activity causes the measured ~58.8 s response latency, nor does it isolate QuietOS/Qwen process RSS or peak working set.
+
+### Alpha status after RAM baseline
+- Local Qwen inference: PASS.
+- Saved-model persistence: PASS.
+- Wiring telemetry: PASS.
+- Conversational latency: FAIL / optimization required.
+- Memory pressure: FAIL / optimization required for this target device/configuration.
+
+### Next gate
+Preserve these measurements as the first RAM comparison baseline. Optimization work must be followed by the same measurement sequence so improvements are evidence-based. Do not expand Attention Engine scope until Qwen runtime latency, RAM pressure, and sustained stability are characterized sufficiently.
