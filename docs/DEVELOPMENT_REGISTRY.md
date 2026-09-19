@@ -1030,3 +1030,28 @@ Important wording correction:
 - Add a one-tap Clear Attention Log control.
 - Keep raw notification storage local.
 - Build/test evidence for this batch is pending CI and physical Motorola verification.
+
+
+## 2026-09-19 - Run #76 physical Attention Mode + Gemma digest PASS with follow-up issues
+
+Physical Motorola evidence supplied by Jon Dean:
+- QuietOS Attention Mode was ON.
+- Attention Engine showed 7 captured records: NOW 0, SOON 0, DIGEST 5, QUIET 2.
+- All 7 captured DIGEST/QUIET records were cancelled by QuietOS before becoming visibly established in the normal notification bar flow.
+- The UI explicitly reported `cancelled 7`.
+- Gemma digest summarization completed locally; UI reported `digest total 27122 ms`.
+- The attention log showed explainable classification reasons and interception actions.
+
+Assessment:
+- Attention Mode interception policy on Motorola: PHYSICAL PASS for the captured DIGEST/QUIET set.
+- Attention repository/display: PHYSICAL PASS.
+- Gemma digest bridge: PHYSICAL PASS for completion.
+- User-visible interception speed: PHYSICAL PASS on this device for this run.
+
+Issues exposed by physical use:
+1. Duplicate notifications are being retained separately; two identical ZipRecruiter records were shown. Add deterministic duplicate collapse before storage/digest.
+2. The ZipRecruiter job recommendation was classified QUIET using the promotional-content rule. That may be too aggressive for job/opportunity notifications and needs rule refinement rather than assuming all recommendation language is promotional noise.
+3. Digest summarization completed but took 27,122 ms, which is functional but too slow for an ideal interactive experience. Optimize prompt size/item count and consider asynchronous/background presentation.
+4. The long attention log pushes the conversation/digest result below the fold. The Attention UI needs a more usable layout before product polish.
+
+Next batch should prioritize deduplication, safer category refinement, and digest/UI responsiveness without weakening the verified NOW/SOON pass-through safety behavior.
