@@ -758,3 +758,12 @@ Gemma repeated the sub-10-second total-response result and ~2.5-second first-out
 
 ### Evidence boundary / next gate
 Do not claim Gemma is lighter than Qwen yet. For a clean memory comparison, capture labeled snapshots at closed baseline, loaded idle, immediate generation, ~15 seconds, and post-generation in one uninterrupted test, then compare deltas from the same baseline. Continue repeated-turn and work-quality testing before final model selection.
+
+
+## 2026-09-19 - Gemma durable memory contract created
+
+A native Google Doc named `QuietOS Gemma Memory Core - Personal Build` was created as the durable, human-readable memory source for Jon Dean's private QuietOS Gemma build. The document defines identity, behavior modes, DeanWay principles, current Gemma evidence, memory categories, write/retrieval rules, conflict handling, sensitive-data exclusions, and the intended future stack: Drive source of truth -> local structured cache -> relevance retrieval -> prompt/context injection -> authorized write-back/sync.
+
+Evidence boundary: the Drive document exists, but QuietOS does **not** yet retrieve or write Gemma memory automatically. Automatic memory remains NOT IMPLEMENTED until a local memory store, retrieval/index layer, context builder, and authorized Drive sync path are added and physically tested. Drive must not become a hard dependency for local inference.
+
+Google Doc ID: `1SxVyseEGDlpeK-_WyQ16gADXM62t52f5LybQAmWLmRY`
