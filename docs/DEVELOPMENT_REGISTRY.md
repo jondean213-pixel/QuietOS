@@ -1192,3 +1192,30 @@ Fix:
 
 Verification:
 - Fix committed; post-fix CI pending.
+
+
+## 2026-09-19 - Voice vocabulary normalization after physical Motorola mismatch
+
+Physical evidence from Jon Dean on Run #83:
+- Spoken request intended as `what is DeanWay Labs` was transcribed by Android as `what is Greenway labs`.
+- Another attempt was transcribed as `what is Dean way labs`.
+- These malformed transcripts bypassed deterministic DeanWay memory matching and were sent to Gemma as ordinary conversation, causing incorrect generated answers.
+- Jon also reported `Jon Dean` being recognized as `John Dean`.
+
+Fix:
+- Added a deterministic VoiceTextNormalizer that runs after Android speech-to-text and before QuietOS command/memory routing.
+- Canonical replacements currently include:
+  - John Dean -> Jon Dean
+  - Dean way / Greenway Labs -> DeanWay Labs
+  - Dean way / Greenway Travels -> DeanWay Travels
+  - Dean way -> DeanWay
+  - Quiet OS -> QuietOS
+  - Ghost mode -> GhostMode
+- When QuietOS changes the transcript, the corrected text is shown in the conversation for test visibility.
+- Original recognized speech is still displayed so physical evidence remains visible.
+- Added unit tests for canonical DeanWay vocabulary and non-target speech pass-through.
+
+Scope:
+- This corrects known personal/product vocabulary deterministically rather than asking Gemma to guess.
+- Attention Engine logic is unchanged.
+- Physical Motorola verification pending.
