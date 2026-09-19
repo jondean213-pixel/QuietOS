@@ -22,6 +22,7 @@ class AttentionRepository(context: Context) {
                     .put("text", item.text)
                     .put("classification", item.classification.name)
                     .put("reason", item.reason)
+                    .put("originalCancelled", item.originalCancelled)
             )
         }
         prefs.edit().putString(KEY_RECORDS, array.toString()).apply()
@@ -45,7 +46,8 @@ class AttentionRepository(context: Context) {
                             title = item.optString("title"),
                             text = item.optString("text"),
                             classification = classification,
-                            reason = item.optString("reason")
+                            reason = item.optString("reason"),
+                            originalCancelled = item.optBoolean("originalCancelled", false)
                         )
                     )
                 }

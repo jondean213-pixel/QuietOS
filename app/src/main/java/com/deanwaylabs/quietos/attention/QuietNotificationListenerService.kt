@@ -6,6 +6,7 @@ import android.service.notification.StatusBarNotification
 
 class QuietNotificationListenerService : NotificationListenerService() {
     private val engine by lazy { AttentionEngine() }
+    private val interceptionPolicy by lazy { InterceptionPolicy() }
     private val repository by lazy { AttentionRepository(this) }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
@@ -30,6 +31,15 @@ class QuietNotificationListenerService : NotificationListenerService() {
             .ifBlank { "(notification without readable text)" }
 
         val decision = engine.classify(AttentionInput(text = combined))
+        val prefs = applicationContext.getSharedPreferences("quietos_attention", MODE_PRIVATE)
+        val interceptionEnabled = prefs.getBoolean(KEY_INTERCEPTION_ENABLED, false)
+        val shouldCancel = interceptionPolicy.shouldCancelOriginal(decision.classification, interceptionEnabled)
+
+        if (shouldCancel) {
+            // Android delivers onNotificationPosted only after the notification is posted.
+            // This is therefore the fastest standard-app cancellation path, not true pre-delivery interception.
+            cancelNotification(posted.key)
+        }
 
         repository.add(
             AttentionRecord(
@@ -38,12 +48,14 @@ class QuietNotificationListenerService : NotificationListenerService() {
                 title = title,
                 text = text,
                 classification = decision.classification,
-                reason = decision.reason
+                reason = decision.reason,
+                originalCancelled = shouldCancel
             )
         )
 
-        // Alpha safety boundary:
-        // capture + classify only. QuietOS does not cancel, delay, or suppress the
-        // original Android notification until physical classification evidence exists.
+    }
+
+    companion object {
+        private const val KEY_INTERCEPTION_ENABLED = "interception_enabled"
     }
 }

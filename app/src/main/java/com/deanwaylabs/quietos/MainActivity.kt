@@ -35,6 +35,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var choose: Button
     private lateinit var attentionStatus: TextView
     private lateinit var attentionLog: TextView
+    private lateinit var interceptionButton: Button
     private val attentionRepository by lazy { AttentionRepository(this) }
 
     private val picker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -110,6 +111,17 @@ class MainActivity : AppCompatActivity() {
                 startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
             }
         }
+        interceptionButton = Button(this).apply {
+            setOnClickListener {
+                val prefs = getSharedPreferences("quietos_attention", MODE_PRIVATE)
+                val next = !prefs.getBoolean("interception_enabled", false)
+                prefs.edit().putBoolean("interception_enabled", next).apply()
+                updateInterceptionButton()
+                refreshAttentionLog()
+            }
+        }
+        updateInterceptionButton()
+
         val refreshAttention = Button(this).apply {
             text = "Refresh Attention Log"
             setOnClickListener { refreshAttentionLog() }
@@ -121,6 +133,7 @@ class MainActivity : AppCompatActivity() {
         }
         column.addView(attentionStatus)
         column.addView(notificationAccess)
+        column.addView(interceptionButton)
         column.addView(refreshAttention)
         column.addView(attentionLog)
 
@@ -218,6 +231,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun updateInterceptionButton() {
+        val enabled = getSharedPreferences("quietos_attention", MODE_PRIVATE)
+            .getBoolean("interception_enabled", false)
+        interceptionButton.text = if (enabled) {
+            "Interception Test Mode: ON"
+        } else {
+            "Interception Test Mode: OFF"
+        }
+    }
+
     private fun refreshAttentionLog() {
         val records = attentionRepository.readAll()
         if (records.isEmpty()) {
@@ -227,10 +250,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         val counts = records.groupingBy { it.classification }.eachCount()
-        attentionStatus.text = "Attention Engine: captured ${records.size} | NOW ${counts[com.deanwaylabs.quietos.attention.AttentionClass.NOW] ?: 0} | SOON ${counts[com.deanwaylabs.quietos.attention.AttentionClass.SOON] ?: 0} | DIGEST ${counts[com.deanwaylabs.quietos.attention.AttentionClass.DIGEST] ?: 0} | QUIET ${counts[com.deanwaylabs.quietos.attention.AttentionClass.QUIET] ?: 0}"
+        val cancelled = records.count { it.originalCancelled }
+        attentionStatus.text = "Attention Engine: captured ${records.size} | NOW ${counts[com.deanwaylabs.quietos.attention.AttentionClass.NOW] ?: 0} | SOON ${counts[com.deanwaylabs.quietos.attention.AttentionClass.SOON] ?: 0} | DIGEST ${counts[com.deanwaylabs.quietos.attention.AttentionClass.DIGEST] ?: 0} | QUIET ${counts[com.deanwaylabs.quietos.attention.AttentionClass.QUIET] ?: 0} | cancelled $cancelled"
 
         attentionLog.text = records.take(5).joinToString("\n\n") { record ->
-            "[${record.classification}] ${record.title.ifBlank { record.packageName }}\n${record.text.take(180)}\nWhy: ${record.reason}"
+            val action = if (record.originalCancelled) "Original cancelled after Android posted it" else "Original left in Android notification flow"
+            "[${record.classification}] ${record.title.ifBlank { record.packageName }}\n${record.text.take(180)}\nWhy: ${record.reason}\nAction: $action"
         }
     }
 

@@ -6,5 +6,6 @@ data class AttentionRecord(
     val title: String,
     val text: String,
     val classification: AttentionClass,
-    val reason: String
+    val reason: String,
+    val originalCancelled: Boolean = false
 )

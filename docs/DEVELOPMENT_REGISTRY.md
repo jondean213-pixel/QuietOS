@@ -981,3 +981,30 @@ Verification state before CI:
 - Notification listener physical capture: NOT YET VERIFIED.
 - Classification behavior on Motorola: NOT YET VERIFIED.
 - Notification suppression/delay: NOT IMPLEMENTED.
+
+
+## 2026-09-19 - Run #74 physical notification-capture PASS; Android interception boundary exposed
+
+Physical Motorola evidence:
+- QuietOS notification listener captured two test notifications.
+- Both were classified DIGEST with reason `default useful event`.
+- Attention Engine UI showed captured 2 / DIGEST 2.
+- Gemma remained loaded and responsive in the same build.
+
+Assessment:
+- Notification listener registration/capture: PHYSICAL PASS.
+- Attention record storage/display: PHYSICAL PASS.
+- Deterministic classification path: PHYSICAL PASS for ordinary DIGEST notifications.
+- Pre-delivery interception: NOT AVAILABLE through standard NotificationListenerService.
+
+Observed Android behavior:
+- The original notification reached Android's notification UI before QuietOS recorded/classified it.
+- This is expected from NotificationListenerService semantics: `onNotificationPosted` is delivered after Android posts the notification. It cannot provide true before-post interception for third-party notifications.
+
+Next controlled experiment:
+- Add an optional Interception Test Mode, default OFF.
+- In test mode, NOW and SOON are never cancelled.
+- DIGEST and QUIET are cancelled immediately after `onNotificationPosted` and classification.
+- Record whether QuietOS cancelled the original.
+- This measures the fastest suppression possible to a normal Android app while preserving deterministic emergency/direct-request safety.
+- True pre-delivery interception remains an OS/platform-level capability, not a standard app capability.
