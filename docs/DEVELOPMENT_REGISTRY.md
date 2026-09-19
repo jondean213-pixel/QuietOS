@@ -1115,3 +1115,26 @@ Verification state:
 - Source implemented.
 - CI/build verification pending.
 - Physical Motorola verification pending.
+
+
+## 2026-09-19 - QuietOS Attention Engine keeper baseline declared
+
+Jon Dean confirmed the current QuietOS Attention Engine behavior as a definite physical PASS on the Motorola after fresh-install testing.
+
+Verified physical behavior across the current keeper sequence:
+- DIGEST/QUIET interception works quickly enough to keep unwanted notifications from visibly settling in the notification bar.
+- NOW/emergency notifications bypass suppression and remain in Android's notification flow.
+- Deterministic emergency classification is physically verified.
+- Duplicate notification clutter is resolved in current testing.
+- Attention logging is functional.
+- Gemma can locally summarize the collected DIGEST notifications.
+- QuietOS Attention Mode operates as intended in real notification traffic, not just synthetic unit tests.
+
+Milestone decision:
+- Treat the current Attention Engine as a keeper baseline for Alpha 0.1.
+- Preserve this known-good behavior before adding voice-command controls.
+- Next functional direction: voice-first control layer, starting with push-to-talk command routing before hands-free wake-word behavior.
+- Buttons remain fallback controls; Gemma interprets intent while QuietOS retains authority for permissions/actions.
+
+Evidence rule remains active:
+- New voice work must not regress emergency bypass, DIGEST/QUIET interception, dedupe, or digest functionality.
