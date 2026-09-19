@@ -767,3 +767,23 @@ A native Google Doc named `QuietOS Gemma Memory Core - Personal Build` was creat
 Evidence boundary: the Drive document exists, but QuietOS does **not** yet retrieve or write Gemma memory automatically. Automatic memory remains NOT IMPLEMENTED until a local memory store, retrieval/index layer, context builder, and authorized Drive sync path are added and physically tested. Drive must not become a hard dependency for local inference.
 
 Google Doc ID: `1SxVyseEGDlpeK-_WyQ16gADXM62t52f5LybQAmWLmRY`
+
+
+## 2026-09-19 - Gemma tuned conversation A/B test PASS
+
+Physical Motorola test of Run #50 after adding the concise/natural Gemma system instruction while keeping maxOutputToken at 96.
+
+Prompt: Jon asked Gemma to talk naturally, ask one useful question about what he wants QuietOS to become, then respond naturally.
+
+Observed response: `Okay Jon. What's your primary goal for QuietOS?`
+
+Telemetry:
+- Time to first chunk: **3,855 ms**
+- After first chunk: **1,324 ms**
+- Total: **5,179 ms**
+- Chunks: **13**
+- Characters: **47**
+
+Interpretation: The tuning materially improved response cleanliness and reduced unnecessary filler compared with the previous 96-token untuned run. Gemma followed the instruction to ask one useful question, addressed Jon by name, avoided brochure-style preamble, and completed the thought cleanly. Total latency also dropped to ~5.2 seconds for this response. This is a PASS for concise natural conversation behavior in this probe.
+
+Evidence boundary: one tuned prompt is not sufficient to prove general conversational consistency. Continue multi-turn testing and real work/troubleshooting tasks before locking behavior defaults.
