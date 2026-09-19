@@ -43,7 +43,8 @@ Authoritative QuietOS core reference:
 - Its Alpha 0.1 goal is to handle notification attention intelligently: capture, analyze, classify, decide delivery timing, and keep an explainable record.
 - Attention classes are Emergency -> Now, Important -> Soon, Useful -> Digest, and Noise -> Quiet.
 - Emergency handling must keep a deterministic safety path and must not rely only on generative AI.
-- Gemma is Jon's personal assistant identity inside QuietOS.
+- Jon Dean is the owner and builder behind DeanWay Labs and QuietOS. In this personal build, Jon is the primary user.
+- Gemma is Jon Dean's personal assistant identity inside QuietOS.
 - Gemma 3 1B IT INT4 is the current local model candidate running through LiteRT-LM.
 - QuietOS owns permissions, tools, notification handling, state, policy, and execution. Gemma handles conversation, language, context, summarization, and reasoning.
 - Future service or phone actions must go through explicit QuietOS tools and permissions. Gemma does not directly control Android or connected accounts.
@@ -78,20 +79,77 @@ Grounding rules:
     }
 
     override suspend fun send(message: String): GenerationResult {
-        val activeConversation = checkNotNull(conversation) { "Local model conversation is not ready." }
+        val startedNs = System.nanoTime()
         val output = StringBuilder()
         var chunks = 0
-        val startedNs = System.nanoTime()
         var firstChunkNs: Long? = null
-        withTimeout(180_000L) {
-            activeConversation.sendMessageAsync(message).collect { chunk ->
-                if (firstChunkNs == null) firstChunkNs = System.nanoTime()
-                chunks++
-                output.append(chunk)
+
+        suspend fun collectFrom(activeConversation: Conversation) {
+            withTimeout(180_000L) {
+                activeConversation.sendMessageAsync(message).collect { chunk ->
+                    if (firstChunkNs == null) firstChunkNs = System.nanoTime()
+                    chunks++
+                    output.append(chunk)
+                }
             }
         }
+
+        val firstConversation = checkNotNull(conversation) { "Local model conversation is not ready." }
+        collectFrom(firstConversation)
+
+        if (chunks == 0) {
+            firstConversation.close()
+            val activeEngine = checkNotNull(engine) { "Local model engine is not ready." }
+            val recovered = activeEngine.createConversation(
+                ConversationConfig(
+                    systemInstruction = Contents.of(
+                        """You are Gemma, Jon's local QuietOS assistant. Talk naturally and directly. Keep answers concise unless more detail is requested. Respond to what Jon just said instead of restating his prompt. Avoid generic praise, filler, and brochure-style language. Ask at most one useful question when appropriate. Finish complete thoughts.
+
+Authoritative QuietOS core reference:
+- QuietOS is a local-first Android attention-intelligence and personal-assistant project by DeanWay Labs.
+- Its Alpha 0.1 goal is to handle notification attention intelligently: capture, analyze, classify, decide delivery timing, and keep an explainable record.
+- Attention classes are Emergency -> Now, Important -> Soon, Useful -> Digest, and Noise -> Quiet.
+- Emergency handling must keep a deterministic safety path and must not rely only on generative AI.
+- Jon Dean is the owner and builder behind DeanWay Labs and QuietOS. In this personal build, Jon is the primary user.
+- Gemma is Jon Dean's personal assistant identity inside QuietOS.
+- Gemma 3 1B IT INT4 is the current local model candidate running through LiteRT-LM.
+- QuietOS owns permissions, tools, notification handling, state, policy, and execution. Gemma handles conversation, language, context, summarization, and reasoning.
+- Future service or phone actions must go through explicit QuietOS tools and permissions. Gemma does not directly control Android or connected accounts.
+- QuietOS is not a Linux distribution and is not a generic privacy-mode operating system.
+
+Grounding rules:
+- Treat the QuietOS core reference above as authoritative.
+- Do not invent facts about QuietOS, DeanWay, Jon, your training, memory, reading, tool access, or external sources.
+- Only claim knowledge that comes from the current conversation or context QuietOS explicitly provides.
+- If you do not know something, say so plainly.
+- Never imply you have read, remembered, trained on, or accessed information unless QuietOS actually supplied it.
+"""
+                    ),
+                    prefillPrefaceOnInit = true,
+                    maxOutputToken = 128,
+                    thinkingConfig = ThinkingConfig(enableThinking = false)
+                )
+            )
+            conversation = recovered
+            collectFrom(recovered)
+        }
+
         val finishedNs = System.nanoTime()
-        check(chunks > 0) { "LiteRT-LM completed without producing response chunks." }
+        if (chunks == 0) {
+            state = ModelState.READY
+            val fallback = "I hit a local generation error and reset my conversation. Please try that again."
+            return GenerationResult(
+                text = fallback,
+                metrics = GenerationMetrics(
+                    timeToFirstChunkMs = 0,
+                    totalTimeMs = (finishedNs - startedNs) / 1_000_000,
+                    generationAfterFirstChunkMs = 0,
+                    chunkCount = 0,
+                    outputChars = fallback.length
+                )
+            )
+        }
+
         val firstNs = checkNotNull(firstChunkNs)
         val ttfc = (firstNs - startedNs) / 1_000_000
         val total = (finishedNs - startedNs) / 1_000_000
