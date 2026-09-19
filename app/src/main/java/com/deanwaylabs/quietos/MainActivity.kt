@@ -48,16 +48,16 @@ class MainActivity : AppCompatActivity() {
             setPadding(pad, pad, pad, pad)
         }
         column.addView(TextView(this).apply {
-            text = "QuietOS Alpha 0.1\nAssistant: Qwen"
+            text = "QuietOS Alpha 0.1\nAssistant: Gemma"
             textSize = 22f
         })
-        status = TextView(this).apply { text = "Qwen status: not loaded" }
+        status = TextView(this).apply { text = "Gemma status: not loaded" }
         choose = Button(this).apply {
-            text = "Choose Qwen model"
+            text = "Choose Gemma model"
             setOnClickListener { picker.launch(arrayOf("*/*")) }
         }
         transcript = TextView(this).apply { text = "Conversation will appear here.\n" }
-        input = EditText(this).apply { hint = "Message Qwen" }
+        input = EditText(this).apply { hint = "Message Gemma" }
         send = Button(this).apply {
             text = "Send"
             isEnabled = false
@@ -77,15 +77,15 @@ class MainActivity : AppCompatActivity() {
         } ?: return
         choose.isEnabled = false
         send.isEnabled = false
-        status.text = "Qwen status: loading saved ${existing.name}..."
+        status.text = "Gemma status: loading saved ${existing.name}..."
         try {
             val metrics = model.load(existing.absolutePath)
-            status.text = "Qwen READY | load ${metrics.loadTimeMs} ms | warmup ${metrics.warmupTimeMs} ms"
-            transcript.append("\nQuietOS: saved Qwen model loaded automatically.\n")
+            status.text = "Gemma READY | load ${metrics.loadTimeMs} ms | warmup ${metrics.warmupTimeMs} ms"
+            transcript.append("\nQuietOS: saved Gemma model loaded automatically.\n")
             send.isEnabled = true
         } catch (t: Throwable) {
-            status.text = "Saved Qwen load FAILED: ${t.message ?: t.javaClass.simpleName}"
-            transcript.append("\nQuietOS: saved model failed to load. Choose Qwen model to replace it.\n")
+            status.text = "Saved Gemma load FAILED: ${t.message ?: t.javaClass.simpleName}"
+            transcript.append("\nQuietOS: saved model failed to load. Choose Gemma model to replace it.\n")
         } finally {
             choose.isEnabled = true
         }
@@ -94,9 +94,9 @@ class MainActivity : AppCompatActivity() {
     private suspend fun importAndLoad(uri: Uri) {
         choose.isEnabled = false
         send.isEnabled = false
-        status.text = "Qwen status: importing model..."
+        status.text = "Gemma status: importing model..."
         try {
-            val displayName = queryDisplayName(uri) ?: "qwen-model.litertlm"
+            val displayName = queryDisplayName(uri) ?: "gemma-model.litertlm"
             require(displayName.endsWith(".litertlm", ignoreCase = true)) { "Select a .litertlm model file." }
             val local = withContext(Dispatchers.IO) {
                 val modelDir = File(filesDir, "models").apply { mkdirs() }
@@ -108,13 +108,13 @@ class MainActivity : AppCompatActivity() {
                 require(destination.length() > 0L) { "Imported model is empty." }
                 destination
             }
-            status.text = "Qwen status: loading "+local.name+"..."
+            status.text = "Gemma status: loading "+local.name+"..."
             val metrics = model.load(local.absolutePath)
-            status.text = "Qwen READY | load "+metrics.loadTimeMs+" ms | warmup "+metrics.warmupTimeMs+" ms"
-            transcript.append("\nQuietOS: Qwen loaded locally.\n")
+            status.text = "Gemma READY | load "+metrics.loadTimeMs+" ms | warmup "+metrics.warmupTimeMs+" ms"
+            transcript.append("\nQuietOS: Gemma loaded locally.\n")
             send.isEnabled = true
         } catch (t: Throwable) {
-            status.text = "Qwen load FAILED: "+(t.message ?: t.javaClass.simpleName)
+            status.text = "Gemma load FAILED: "+(t.message ?: t.javaClass.simpleName)
             transcript.append("\nQuietOS: model load failed.\n")
         } finally {
             choose.isEnabled = true
@@ -126,8 +126,8 @@ class MainActivity : AppCompatActivity() {
         if (message.isEmpty()) return
         input.text.clear()
         send.isEnabled = false
-        transcript.append("\nJon: "+message+"\nQwen: ")
-        status.text = "Qwen status: generating..."
+        transcript.append("\nJon: "+message+"\nGemma: ")
+        status.text = "Gemma status: generating..."
         lifecycleScope.launch {
             try {
                 val started = System.nanoTime()
@@ -136,16 +136,16 @@ class MainActivity : AppCompatActivity() {
                 val elapsed = (System.nanoTime() - started) / 1_000_000
                 if (reply.isBlank()) {
                     transcript.append("[EMPTY RESPONSE]\n")
-                    status.text = "Qwen generation FAILED: empty response after ${elapsed} ms"
+                    status.text = "Gemma generation FAILED: empty response after ${elapsed} ms"
                 } else {
                     transcript.append(reply+"\n[response "+elapsed+" ms]\n")
                     val m = result.metrics
                     transcript.append("[wiring: first chunk ${m.timeToFirstChunkMs} ms | after first ${m.generationAfterFirstChunkMs} ms | total ${m.totalTimeMs} ms | chunks ${m.chunkCount} | chars ${m.outputChars}]\n")
-                    status.text = "Qwen READY | first ${m.timeToFirstChunkMs} ms | total ${m.totalTimeMs} ms"
+                    status.text = "Gemma READY | first ${m.timeToFirstChunkMs} ms | total ${m.totalTimeMs} ms"
                 }
             } catch (t: Throwable) {
                 transcript.append("[FAILED: "+t.javaClass.simpleName+": "+(t.message ?: "no message")+"]\n")
-                status.text = "Qwen generation FAILED: "+t.javaClass.simpleName
+                status.text = "Gemma generation FAILED: "+t.javaClass.simpleName
             } finally {
                 send.isEnabled = model.state == ModelState.READY
             }
