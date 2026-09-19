@@ -524,3 +524,23 @@ The next Motorola response should display:
 
 ### Evidence boundary
 Source instrumentation is committed. CI and physical-device results are NOT YET VERIFIED for this increment. No backend or model optimization has been applied yet.
+
+
+## Alpha 0.1 — Run #25 physical Qwen wiring telemetry PASS
+
+### Physical evidence
+- Target device: Jon Dean's Motorola Android test phone.
+- CI source: Run #25, commit `385379da652e00858f5d86bd567a8c684c0562f1`.
+- Local Qwen response completed successfully.
+- UI response measurement: **58,807 ms**.
+- LiteRT-LM wiring total: **58,805 ms**.
+- Time to first generated chunk: **13,544 ms**.
+- Generation after first chunk: **45,261 ms**.
+- Emitted chunks: **125**.
+- Final visible output: **39 characters**.
+
+### Interpretation / evidence boundary
+This test localizes the latency. The delay is not exclusively startup/prefill: first output takes 13.544 s, then generation continues for another 45.261 s. Post-first-chunk generation is the larger component (~77% of measured total). The runtime is therefore functionally connected, but performance remains unacceptable for normal conversation. These measurements do not yet establish token/s, token counts, RAM usage, thermal behavior, repeated-turn stability, or the optimal LiteRT-LM backend.
+
+### Next gate
+Do not expand Alpha scope. Measure/reduce decode/generation cost and verify RAM/stability before Attention Engine integration. Preserve this Run #25 measurement as the first internal wiring telemetry baseline.
