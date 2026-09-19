@@ -25,7 +25,7 @@ class LiteRtQwenModel : LocalModel {
             val created = Engine(EngineConfig(
                 modelPath = modelPath,
                 backend = Backend.CPU(),
-                maxNumTokens = 1024
+                maxNumTokens = 512
             ))
             created.initialize()
             engine = created
@@ -46,7 +46,7 @@ class LiteRtQwenModel : LocalModel {
         withTimeout(180_000L) {
             active.createConversation(
                 ConversationConfig(
-                    maxOutputToken = 128,
+                    maxOutputToken = 64,
                     thinkingConfig = ThinkingConfig(enableThinking = false)
                 )
             ).use { conversation ->
