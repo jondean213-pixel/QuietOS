@@ -869,3 +869,28 @@ Corrective architecture change:
 - Code commit: `8f557a1200325e6c6848ffc18cd8917672ccd4fe`.
 
 Next test: ask the exact same QuietOS-purpose question. PASS requires an answer substantially grounded in the injected core reference without invented modes, tiers, platforms, or source claims.
+
+
+## 2026-09-19 - Run #58 physical grounding PASS; zero-chunk error and Jon identity gap found
+
+Physical Motorola test of the build with authoritative QuietOS core reference injected into Gemma's system context.
+
+Primary grounding prompt: `Tell me what you know about QuietOS and what its purpose is.`
+
+Observed answer was substantially grounded in the real project: Gemma identified herself as Jon's QuietOS assistant; described intelligent notification handling, capture/analyze/classify/delivery timing, deterministic safety paths, and the Gemma 3 1B IT INT4 local model. A later repeat also correctly described QuietOS as managing attention and proactively handling notifications, with Gemma as Jon's personal assistant through LiteRT-LM.
+
+Telemetry:
+- First grounded answer: first chunk **7,953 ms**; after first **10,507 ms**; total **18,460 ms**; chunks **100**; chars **463**.
+- Later grounded repeat: first chunk **842 ms**; after first **5,661 ms**; total **6,503 ms**; chunks **52**; chars **253**.
+
+Grounding assessment: **PASS** for the QuietOS-purpose probe. The injected core reference corrected the prior Linux/privacy-mode hallucinations.
+
+New issues exposed:
+1. Prompt `who is Jon` produced `IllegalStateException: LiteRT-LM completed without producing response chunks.` This is a runtime robustness failure, not a content failure.
+2. After the error/reload, a later `who is jon` answer incorrectly said Jon was an account used by QuietOS. The current core reference names Jon but does not define who he is, so Gemma filled that gap incorrectly.
+3. User reported the chat window/flow felt off after the zero-chunk error, indicating error recovery should preserve a stable UI/conversation state instead of leaving the session in an awkward state.
+
+Next corrective work:
+- Add explicit Jon identity to the authoritative core reference (Jon Dean, owner/builder of DeanWay Labs/QuietOS; Gemma is his personal QuietOS assistant).
+- Add controlled recovery for zero-chunk generation: detect no-output completion, recover the conversation cleanly, preserve UI usability, and avoid raw exception text as the user-facing response.
+- Regression-test the QuietOS-purpose prompt and `Who is Jon?` after recovery work.
