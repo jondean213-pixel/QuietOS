@@ -30,6 +30,20 @@ class LiteRtQwenModel : LocalModel {
                 maxNumTokens = 512
             ))
             created.initialize()
+
+            val warmupStarted = System.nanoTime()
+            created.createConversation(
+                ConversationConfig(
+                    maxOutputToken = 1,
+                    thinkingConfig = ThinkingConfig(enableThinking = false)
+                )
+            ).use { warmupConversation ->
+                withTimeout(120_000L) {
+                    warmupConversation.sendMessageAsync(".").collect { }
+                }
+            }
+            val warmupTimeMs = (System.nanoTime() - warmupStarted) / 1_000_000
+
             val createdConversation = created.createConversation(
                 ConversationConfig(
                     maxOutputToken = 64,
@@ -39,7 +53,11 @@ class LiteRtQwenModel : LocalModel {
             engine = created
             conversation = createdConversation
             state = ModelState.READY
-            LoadMetrics((System.nanoTime() - started) / 1_000_000, modelPath)
+            LoadMetrics(
+                loadTimeMs = (System.nanoTime() - started) / 1_000_000,
+                modelPath = modelPath,
+                warmupTimeMs = warmupTimeMs
+            )
         } catch (t: Throwable) {
             state = ModelState.ERROR
             throw t
