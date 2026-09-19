@@ -84,9 +84,9 @@ Grounding rules:
         var chunks = 0
         var firstChunkNs: Long? = null
 
-        suspend fun collectFrom(activeConversation: Conversation) {
+        suspend fun collectFrom(activeConversation: Conversation, prompt: String) {
             withTimeout(180_000L) {
-                activeConversation.sendMessageAsync(message).collect { chunk ->
+                activeConversation.sendMessageAsync(prompt).collect { chunk ->
                     if (firstChunkNs == null) firstChunkNs = System.nanoTime()
                     chunks++
                     output.append(chunk)
@@ -94,8 +94,14 @@ Grounding rules:
             }
         }
 
+        fun needsCompletion(text: String): Boolean {
+            val trimmed = text.trimEnd()
+            if (trimmed.isEmpty()) return false
+            return trimmed.last() !in listOf('.', '!', '?', '…', '”', '"', '\'', ')', ']', '}')
+        }
+
         val firstConversation = checkNotNull(conversation) { "Local model conversation is not ready." }
-        collectFrom(firstConversation)
+        collectFrom(firstConversation, message)
 
         if (chunks == 0) {
             firstConversation.close()
@@ -131,7 +137,16 @@ Grounding rules:
                 )
             )
             conversation = recovered
-            collectFrom(recovered)
+            collectFrom(recovered, message)
+        }
+
+        if (chunks > 0 && needsCompletion(output.toString())) {
+            val activeConversation = checkNotNull(conversation) { "Local model conversation is not ready." }
+            output.append(" ")
+            collectFrom(
+                activeConversation,
+                "Finish only the incomplete final sentence from your previous answer. Continue naturally from where you stopped, use one short clause or sentence, and do not repeat earlier text."
+            )
         }
 
         val finishedNs = System.nanoTime()
