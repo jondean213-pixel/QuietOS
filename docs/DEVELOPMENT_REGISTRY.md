@@ -1239,3 +1239,22 @@ Assessment:
 Separate downstream observation:
 - The generated QuietOS explanation still rendered "Dean Way Labs" with a space and included an inaccurate statement that Gemma was initially trained by LiteRT-LM. This is a model-output grounding/canonicalization issue, not a speech-recognition or voice-normalization failure.
 - Treat voice normalization as passed while tracking model-output canonicalization/grounding separately.
+
+
+## 2026-09-19 - QuietOS identity grounding hardening after Run #87 screenshot review
+
+Physical evidence:
+- Voice normalization itself passed.
+- Spoken "who is quiet OS" was corrected to "who is QuietOS".
+- That phrasing did not match the existing deterministic QuietOS memory route, so it fell through to generative Gemma output.
+- The generated answer introduced two defects: it rendered "Dean Way Labs" with a space and incorrectly said Gemma was initially trained by LiteRT-LM.
+
+Fix:
+- Expanded deterministic QuietOS identity routing to include "who is QuietOS" and "tell me about QuietOS" in addition to the existing "what is QuietOS" / purpose forms.
+- Added unit tests proving these prompts route to grounded QuietOS memory and contain canonical "DeanWay Labs" wording.
+- This avoids unnecessary model generation for a known factual identity question and removes the opportunity for the LiteRT-LM training hallucination on this path.
+
+Scope:
+- Voice normalization remains unchanged.
+- Attention Engine remains unchanged.
+- Physical Motorola verification pending.
