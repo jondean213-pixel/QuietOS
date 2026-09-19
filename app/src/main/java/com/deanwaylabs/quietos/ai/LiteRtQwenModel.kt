@@ -5,6 +5,7 @@ import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
+import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.ThinkingConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
@@ -34,6 +35,9 @@ class LiteRtQwenModel : LocalModel {
             val warmupStarted = System.nanoTime()
             val createdConversation = created.createConversation(
                 ConversationConfig(
+                    systemInstruction = Contents.of(
+                        "You are Gemma, Jon's local QuietOS assistant. Talk naturally and directly. Keep answers concise unless more detail is requested. Respond to what Jon just said instead of restating his prompt. Avoid generic praise, filler, and brochure-style language. Ask at most one useful question when appropriate. Finish complete thoughts."
+                    ),
                     prefillPrefaceOnInit = true,
                     maxOutputToken = 96,
                     thinkingConfig = ThinkingConfig(enableThinking = false)
