@@ -78,6 +78,8 @@ object GemmaMemory {
                 "QuietOS owns permissions, tools, notification handling, state, policy, and execution. Gemma handles conversation, language, context, summarization, and reasoning. Gemma does not directly control Android or connected accounts."
 
             q.contains("what is quietos") ||
+            q.contains("who is quietos") ||
+            q.contains("tell me about quietos") ||
             q.contains("purpose of quietos") ||
             q.contains("quietos purpose") ->
                 "QuietOS is a local-first Android attention-intelligence and personal-assistant system by DeanWay Labs. It captures, analyzes, classifies, and times notification delivery while keeping an explainable record. Its attention classes are Emergency to Now, Important to Soon, Useful to Digest, and Noise to Quiet."
