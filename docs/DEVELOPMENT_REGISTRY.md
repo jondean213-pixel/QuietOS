@@ -842,3 +842,30 @@ Corrective change committed immediately after this test:
 - Code commit: `705d211eda54f6213c396e39f7434f0193438751`.
 
 Next test: rerun the same QuietOS knowledge question. Expected behavior is either an answer grounded only in supplied context or a plain statement that she does not yet have enough information. No invented Linux/minimalism story.
+
+
+## 2026-09-19 - Run #56 grounding retest FAIL; authoritative core reference added
+
+Physical Motorola retest after adding grounding rules and raising maxOutputToken to 128.
+
+Prompt: `Tell me what you know about QuietOS and what its purpose is.`
+
+Observed response remained hallucinated. Gemma described QuietOS as an assistant focused on privacy/control, then invented a `Privacy-First` approach, active-mode privacy toggles, an Offline mode, and QuietOS/QuietOS Lite privacy tiers that are not part of the verified project state.
+
+Telemetry from screenshot:
+- First answer: first chunk **4,439 ms**; after first **6,869 ms**; total **11,309 ms**; chunks **66**; chars **344**.
+- Follow-up answer: first chunk **918 ms**; after first **11,861 ms**; total **12,779 ms**; chunks **110**; chars **515**.
+- Status line later showed first **869 ms**, total **12,057 ms** for the next generation.
+
+Assessment:
+- Grounding rule alone: **FAIL**. The model still filled missing project knowledge with plausible inventions.
+- 128-token cap: no truncation observed in these shown turns.
+- Latency: first-token response remained strong on later turns.
+
+Corrective architecture change:
+- Added an authoritative QuietOS core reference directly to Gemma's system context, derived from current README and architecture docs.
+- Core facts include: local-first Android attention intelligence; notification capture/analyze/classify/delivery/explainability; attention classes; deterministic emergency path; Gemma identity; Gemma 3 1B IT INT4 via LiteRT-LM; separation between Gemma reasoning and QuietOS permissions/tools/execution; and explicit statements that QuietOS is not a Linux distribution or generic privacy-mode OS.
+- Existing anti-hallucination grounding rules remain.
+- Code commit: `8f557a1200325e6c6848ffc18cd8917672ccd4fe`.
+
+Next test: ask the exact same QuietOS-purpose question. PASS requires an answer substantially grounded in the injected core reference without invented modes, tiers, platforms, or source claims.
