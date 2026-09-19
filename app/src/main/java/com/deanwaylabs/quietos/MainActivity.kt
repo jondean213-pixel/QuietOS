@@ -80,7 +80,7 @@ class MainActivity : AppCompatActivity() {
         status.text = "Qwen status: loading saved ${existing.name}..."
         try {
             val metrics = model.load(existing.absolutePath)
-            status.text = "Qwen READY | saved model | load ${metrics.loadTimeMs} ms"
+            status.text = "Qwen READY | load ${metrics.loadTimeMs} ms | warmup ${metrics.warmupTimeMs} ms"
             transcript.append("\nQuietOS: saved Qwen model loaded automatically.\n")
             send.isEnabled = true
         } catch (t: Throwable) {
@@ -110,7 +110,7 @@ class MainActivity : AppCompatActivity() {
             }
             status.text = "Qwen status: loading "+local.name+"..."
             val metrics = model.load(local.absolutePath)
-            status.text = "Qwen READY | load "+metrics.loadTimeMs+" ms"
+            status.text = "Qwen READY | load "+metrics.loadTimeMs+" ms | warmup "+metrics.warmupTimeMs+" ms"
             transcript.append("\nQuietOS: Qwen loaded locally.\n")
             send.isEnabled = true
         } catch (t: Throwable) {
