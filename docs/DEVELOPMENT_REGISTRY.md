@@ -706,3 +706,27 @@ The RAM screenshot supplied alongside this test is timestamped 10:49, while Run 
 
 ### Next gate
 Keep the low-memory token/KV settings. Move the controlled investigation to CPU/backend/runtime configuration and warm-vs-cold execution, because conversation prefill has not solved the dominant TTFC problem.
+
+
+## Alpha 0.1 — First Gemma 3 1B physical inference test
+
+### Candidate brain swap
+Jon physically loaded the Gemma 3 1B INT4 LiteRT-LM candidate into QuietOS on the Motorola and performed the first conversational test. The QuietOS UI still displays the hardcoded assistant label "Qwen"; that label does not identify the underlying model and should not be treated as model evidence.
+
+### Physical telemetry evidence
+Screenshot confirms first-run Gemma response to "Hi Gemma":
+- Response: **8,906 ms**.
+- First chunk: **2,191 ms**.
+- After first: **6,714 ms**.
+- Total: **8,906 ms**.
+- Chunks: **64**.
+- Characters: **248**.
+
+### Comparison with Qwen 1.7B
+Compared with the best prior Qwen result (Run #29: 40,269 ms total; 38,905 ms first chunk), Gemma's first physical run is dramatically faster: about **77.9% lower total latency** and about **94.4% lower time-to-first-chunk**. Gemma also produced a substantially longer response in this test (248 characters), so the lower latency is not explained by a shorter visible answer.
+
+### Evidence boundary
+This is a single physical conversational test. It verifies that Gemma 3 1B can run through the existing QuietOS LiteRT-LM adapter and deliver much faster first-output and total-response timing on the Motorola. RAM/swap behavior, repeated-turn stability, work-task quality, personality quality, thermals, and long-session behavior are not yet verified for this candidate.
+
+### Next gate
+Measure Gemma RAM/swap using the same Termux/Debian protocol, then test repeated conversation and representative work tasks. Do not select the final brain until Gemma proves both capability and resource headroom for QuietOS voice/animation/custom presentation.
