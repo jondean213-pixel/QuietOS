@@ -3,6 +3,7 @@ package com.deanwaylabs.quietos.ai
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
+import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.ThinkingConfig
 import kotlinx.coroutines.Dispatchers
@@ -16,6 +17,7 @@ class LiteRtQwenModel : LocalModel {
         private set
 
     private var engine: Engine? = null
+    private var conversation: Conversation? = null
 
     override suspend fun load(modelPath: String): LoadMetrics = withContext(Dispatchers.IO) {
         close()
@@ -28,7 +30,14 @@ class LiteRtQwenModel : LocalModel {
                 maxNumTokens = 512
             ))
             created.initialize()
+            val createdConversation = created.createConversation(
+                ConversationConfig(
+                    maxOutputToken = 64,
+                    thinkingConfig = ThinkingConfig(enableThinking = false)
+                )
+            )
             engine = created
+            conversation = createdConversation
             state = ModelState.READY
             LoadMetrics((System.nanoTime() - started) / 1_000_000, modelPath)
         } catch (t: Throwable) {
@@ -38,23 +47,16 @@ class LiteRtQwenModel : LocalModel {
     }
 
     override suspend fun send(message: String): GenerationResult {
-        val active = checkNotNull(engine) { "Local model is not loaded." }
+        val activeConversation = checkNotNull(conversation) { "Local model conversation is not ready." }
         val output = StringBuilder()
         var chunks = 0
         val startedNs = System.nanoTime()
         var firstChunkNs: Long? = null
         withTimeout(180_000L) {
-            active.createConversation(
-                ConversationConfig(
-                    maxOutputToken = 64,
-                    thinkingConfig = ThinkingConfig(enableThinking = false)
-                )
-            ).use { conversation ->
-                conversation.sendMessageAsync(message).collect { chunk ->
-                    if (firstChunkNs == null) firstChunkNs = System.nanoTime()
-                    chunks++
-                    output.append(chunk)
-                }
+            activeConversation.sendMessageAsync(message).collect { chunk ->
+                if (firstChunkNs == null) firstChunkNs = System.nanoTime()
+                chunks++
+                output.append(chunk)
             }
         }
         val finishedNs = System.nanoTime()
@@ -75,6 +77,8 @@ class LiteRtQwenModel : LocalModel {
     }
 
     override fun close() {
+        conversation?.close()
+        conversation = null
         engine?.close()
         engine = null
         state = ModelState.UNLOADED
