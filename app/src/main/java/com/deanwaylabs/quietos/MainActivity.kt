@@ -46,6 +46,10 @@ class MainActivity : AppCompatActivity() {
         val column = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, pad, pad)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
         }
         column.addView(TextView(this).apply {
             text = "QuietOS Alpha 0.1\nAssistant: Gemma"
@@ -63,12 +67,29 @@ class MainActivity : AppCompatActivity() {
             isEnabled = false
             setOnClickListener { sendMessage() }
         }
+        val transcriptScroll = ScrollView(this).apply {
+            isFillViewport = true
+            addView(
+                transcript,
+                ScrollView.LayoutParams(
+                    ScrollView.LayoutParams.MATCH_PARENT,
+                    ScrollView.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
         column.addView(status)
         column.addView(choose)
-        column.addView(transcript)
+        column.addView(
+            transcriptScroll,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
+        )
         column.addView(input)
         column.addView(send)
-        return ScrollView(this).apply { addView(column) }
+        return column
     }
 
     private suspend fun autoLoadExistingModel() {
