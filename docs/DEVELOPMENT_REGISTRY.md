@@ -809,3 +809,36 @@ Next tuning gate:
 1. Add a grounding rule: Gemma must not claim to have read, trained on, remembered, or accessed QuietOS/DeanWay information unless that information is actually present in the current conversation, injected memory, or verified tool result.
 2. Increase maxOutputToken in a controlled test from 96 to 128 so longer answers can complete.
 3. Re-run the same multi-turn sequence and verify both complete answers and provenance honesty.
+
+
+## 2026-09-19 - Run #55 physical UI PASS and QuietOS grounding failure
+
+Physical Motorola test of Run #55 after enlarging the dedicated conversation window and adding bottom system/IME insets.
+
+UI result:
+- Large conversation area visible.
+- Message field and SEND button remained reachable above Android navigation and the on-screen keyboard.
+- Layout fix: **PASS**.
+
+Conversation probe:
+- Jon: `hi Gemma`
+- Gemma: `Hi Jon! How’s your day going?`
+- Telemetry: first chunk **3,239 ms**; after first **1,042 ms**; total **4,281 ms**; chunks **10**; chars **29**.
+
+QuietOS knowledge probe:
+- Jon asked what Gemma knew about QuietOS and its purpose.
+- Gemma incorrectly described QuietOS as a Linux-based environment focused on quiet/minimal operation and Linux applications.
+- Telemetry: first chunk **2,513 ms**; after first **9,010 ms**; total **11,524 ms**; chunks **84**; chars **406**.
+
+Assessment:
+- UI usability: PASS.
+- Natural greeting: PASS.
+- Grounding/provenance: FAIL. Gemma invented a definition of QuietOS not supplied by the active conversation or memory/tool context.
+
+Corrective change committed immediately after this test:
+- Added explicit grounding rule preventing invented claims about QuietOS, DeanWay, Jon, training, memory, reading, tool access, or external sources.
+- Gemma must say she does not know when relevant facts are not supplied by current conversation or QuietOS context.
+- Increased maxOutputToken from **96 to 128** for a controlled completion test.
+- Code commit: `705d211eda54f6213c396e39f7434f0193438751`.
+
+Next test: rerun the same QuietOS knowledge question. Expected behavior is either an answer grounded only in supplied context or a plain statement that she does not yet have enough information. No invented Linux/minimalism story.
