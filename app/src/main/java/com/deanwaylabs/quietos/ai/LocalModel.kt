@@ -11,7 +11,8 @@ enum class ModelState { UNLOADED, LOADING, READY, ERROR }
 
 data class LoadMetrics(
     val loadTimeMs: Long,
-    val modelPath: String
+    val modelPath: String,
+    val warmupTimeMs: Long = 0L
 )
 
 data class GenerationMetrics(
