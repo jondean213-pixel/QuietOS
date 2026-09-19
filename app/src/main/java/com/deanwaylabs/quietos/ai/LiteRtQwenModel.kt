@@ -80,6 +80,20 @@ Grounding rules:
 
     override suspend fun send(message: String): GenerationResult {
         val startedNs = System.nanoTime()
+
+        GemmaMemory.answerKnownQuestion(message)?.let { known ->
+            val finishedNs = System.nanoTime()
+            return GenerationResult(
+                text = known,
+                metrics = GenerationMetrics(
+                    timeToFirstChunkMs = 0,
+                    totalTimeMs = (finishedNs - startedNs) / 1_000_000,
+                    generationAfterFirstChunkMs = 0,
+                    chunkCount = 0,
+                    outputChars = known.length
+                )
+            )
+        }
         val output = StringBuilder()
         var chunks = 0
         var firstChunkNs: Long? = null
