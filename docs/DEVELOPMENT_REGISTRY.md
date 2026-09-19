@@ -1280,3 +1280,38 @@ Assessment:
 
 Milestone decision:
 - Treat Run #91 identity/voice grounding as the current verified baseline.
+
+
+## 2026-09-20 - Run #92 hands-free voice activation checkpoint recovered
+
+Status: DEVELOPMENT CHECKPOINT RECOVERED / IMPLEMENTATION NOT YET VERIFIED
+
+### Starting evidence
+- GitHub main currently ends at the physically verified Run #91 identity/voice grounding baseline.
+- The Run #91 APK has been preserved by Jon Dean as the physical rollback build.
+- Jon confirmed that development had already moved beyond push-to-talk and had just started the next stage: hands-free voice activation.
+- The prior development chat entered a thinking loop before that hands-free work could be documented or committed.
+
+### Evidence boundary
+- Run #91 remains the latest committed and physically verified baseline.
+- Push-to-talk voice routing is already implemented and is NOT the current development target.
+- Voice vocabulary normalization and deterministic identity/memory grounding are already physically verified and must be preserved.
+- Attention Engine keeper behavior remains a protected regression boundary: emergency/NOW pass-through, DIGEST/QUIET interception, deduplication, attention logging, and local Gemma digest behavior must not be weakened.
+- Hands-free voice activation work had started conversationally, but no surviving committed source or physical evidence has yet been identified for that increment. Its exact implementation state is therefore NOT VERIFIED.
+
+### Active development position
+Run #92 is reserved for the hands-free voice activation stage. Work must resume from the Run #91 keeper source unless concrete surviving post-Run-91 implementation evidence is found.
+
+### Documentation rule for Run #92
+Before any hands-free behavior is claimed complete, record:
+1. exact wake/listening architecture and Android APIs used;
+2. files changed;
+3. permission and lifecycle behavior;
+4. battery/background implications;
+5. command-routing integration with the existing deterministic voice path;
+6. unit/CI evidence;
+7. Motorola physical evidence;
+8. regressions against the Run #91 voice baseline and Attention Engine keeper baseline;
+9. failures, fixes, and rollback point.
+
+No undocumented prior hands-free behavior is to be reconstructed as fact. Evidence comes before claims.
