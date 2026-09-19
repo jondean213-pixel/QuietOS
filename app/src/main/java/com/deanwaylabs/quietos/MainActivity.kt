@@ -12,6 +12,8 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.deanwaylabs.quietos.ai.LiteRtQwenModel
 import com.deanwaylabs.quietos.ai.ModelState
@@ -51,6 +53,17 @@ class MainActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.MATCH_PARENT
             )
+        }
+        ViewCompat.setOnApplyWindowInsetsListener(column) { view, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            view.setPadding(
+                pad,
+                pad,
+                pad,
+                pad + maxOf(systemBars.bottom, ime.bottom)
+            )
+            insets
         }
         column.addView(TextView(this).apply {
             text = "QuietOS Alpha 0.1\nAssistant: Gemma"
