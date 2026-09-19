@@ -1,10 +1,12 @@
 package com.deanwaylabs.quietos
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.provider.Settings
+import android.speech.RecognizerIntent
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
@@ -20,6 +22,8 @@ import androidx.lifecycle.lifecycleScope
 import com.deanwaylabs.quietos.ai.LiteRtQwenModel
 import com.deanwaylabs.quietos.ai.ModelState
 import com.deanwaylabs.quietos.attention.AttentionRepository
+import com.deanwaylabs.quietos.voice.VoiceCommand
+import com.deanwaylabs.quietos.voice.VoiceCommandRouter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -37,6 +41,18 @@ class MainActivity : AppCompatActivity() {
     private lateinit var attentionLog: TextView
     private lateinit var interceptionButton: Button
     private val attentionRepository by lazy { AttentionRepository(this) }
+    private val voiceRouter = VoiceCommandRouter()
+
+    private val voiceLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode != Activity.RESULT_OK) return@registerForActivityResult
+        val spoken = result.data
+            ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull()
+            ?.trim()
+            .orEmpty()
+
+        if (spoken.isNotEmpty()) handleVoiceInput(spoken)
+    }
 
     private val picker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -88,6 +104,10 @@ class MainActivity : AppCompatActivity() {
             isEnabled = false
             setOnClickListener { sendMessage() }
         }
+        val talk = Button(this).apply {
+            text = "Talk to Gemma"
+            setOnClickListener { launchVoiceInput() }
+        }
         val transcriptScroll = ScrollView(this).apply {
             isFillViewport = true
             addView(
@@ -115,9 +135,7 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener {
                 val prefs = getSharedPreferences("quietos_attention", MODE_PRIVATE)
                 val next = !prefs.getBoolean("interception_enabled", false)
-                prefs.edit().putBoolean("interception_enabled", next).apply()
-                updateInterceptionButton()
-                refreshAttentionLog()
+                setAttentionMode(next)
             }
         }
         updateInterceptionButton()
@@ -160,6 +178,7 @@ class MainActivity : AppCompatActivity() {
             )
         )
         column.addView(input)
+        column.addView(talk)
         column.addView(send)
         return column
     }
@@ -243,6 +262,67 @@ class MainActivity : AppCompatActivity() {
                 send.isEnabled = model.state == ModelState.READY
             }
         }
+    }
+
+    private fun launchVoiceInput() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Talk to Gemma")
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+        }
+
+        runCatching { voiceLauncher.launch(intent) }
+            .onFailure {
+                transcript.append("\nQuietOS: speech recognition is not available on this device.\n")
+            }
+    }
+
+    private fun handleVoiceInput(spoken: String) {
+        transcript.append("\nJon (voice): $spoken\n")
+        when (val route = voiceRouter.route(spoken)) {
+            is com.deanwaylabs.quietos.voice.VoiceRoute -> when (route.command) {
+                VoiceCommand.SUMMARIZE_DIGEST -> {
+                    transcript.append("QuietOS: voice command accepted — summarize digest.\n")
+                    summarizeDigestWithGemma()
+                }
+
+                VoiceCommand.ATTENTION_ON -> {
+                    setAttentionMode(true)
+                    transcript.append("QuietOS: Attention Mode turned ON by voice.\n")
+                }
+
+                VoiceCommand.ATTENTION_OFF -> {
+                    setAttentionMode(false)
+                    transcript.append("QuietOS: Attention Mode turned OFF by voice.\n")
+                }
+
+                VoiceCommand.CLEAR_ATTENTION_LOG -> {
+                    attentionRepository.clear()
+                    refreshAttentionLog()
+                    transcript.append("QuietOS: attention log cleared by voice.\n")
+                }
+
+                VoiceCommand.REFRESH_ATTENTION,
+                VoiceCommand.ATTENTION_STATUS -> {
+                    refreshAttentionLog()
+                    transcript.append("QuietOS: attention status refreshed by voice.\n")
+                }
+
+                VoiceCommand.CONVERSATION -> {
+                    input.setText(route.originalText)
+                    sendMessage()
+                }
+            }
+        }
+    }
+
+    private fun setAttentionMode(enabled: Boolean) {
+        getSharedPreferences("quietos_attention", MODE_PRIVATE)
+            .edit()
+            .putBoolean("interception_enabled", enabled)
+            .apply()
+        updateInterceptionButton()
+        refreshAttentionLog()
     }
 
     private fun summarizeDigestWithGemma() {

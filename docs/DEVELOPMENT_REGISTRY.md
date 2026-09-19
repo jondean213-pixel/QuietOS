@@ -1138,3 +1138,35 @@ Milestone decision:
 
 Evidence rule remains active:
 - New voice work must not regress emergency bypass, DIGEST/QUIET interception, dedupe, or digest functionality.
+
+
+## 2026-09-19 - Voice-first control layer, Stage 1 implemented
+
+Starting point:
+- Attention Engine keeper baseline physically passed on Motorola.
+- Jon approved voice-first control as the next direction while retaining buttons as fallback controls.
+
+Implementation:
+- Added a deterministic VoiceCommandRouter separate from Gemma model generation.
+- Added push-to-talk "Talk to Gemma" control using Android speech recognition.
+- Recognized speech is routed to QuietOS commands before any model call.
+- Supported first-stage voice commands:
+  - summarize digest
+  - Attention Mode on
+  - Attention Mode off
+  - clear attention log
+  - refresh attention
+  - report/refresh what QuietOS caught
+- Speech that is not a recognized QuietOS control falls through to the existing Gemma conversation path.
+- QuietOS, not Gemma, executes state-changing commands.
+- Existing buttons remain functional fallbacks.
+- Attention Mode state writes were centralized so button and voice paths use the same implementation.
+
+Tests:
+- Added unit tests for each deterministic command route plus ordinary-conversation fallback.
+
+Safety / regression boundary:
+- Voice does not alter the verified Attention Engine classification policy.
+- Emergency NOW/SOON pass-through and DIGEST/QUIET interception behavior remain unchanged.
+- Always-listening wake-word behavior is NOT implemented in this stage.
+- Physical speech recognition and command execution remain NOT VERIFIED until Motorola testing.
