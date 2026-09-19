@@ -1055,3 +1055,19 @@ Issues exposed by physical use:
 4. The long attention log pushes the conversation/digest result below the fold. The Attention UI needs a more usable layout before product polish.
 
 Next batch should prioritize deduplication, safer category refinement, and digest/UI responsiveness without weakening the verified NOW/SOON pass-through safety behavior.
+
+
+## 2026-09-19 - Duplicate notification collapse implemented
+
+Jon confirmed duplicate capture should be fixed while leaving the current ZipRecruiter QUIET classification unchanged because that content is unwanted spam in actual use.
+
+Implementation:
+- AttentionRepository now collapses duplicate records from the same package when title and text match exactly within a 5-minute window.
+- The newest matching record replaces the older duplicate in storage.
+- Existing classification, interception, and safety behavior remain unchanged.
+- This is intended to keep repeated identical pushes from bloating the attention log and Gemma digest.
+
+Verification state:
+- Source implemented.
+- CI/build verification pending.
+- Physical Motorola duplicate-collapse test pending.

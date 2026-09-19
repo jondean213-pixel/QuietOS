@@ -9,8 +9,13 @@ class AttentionRepository(context: Context) {
 
     fun add(record: AttentionRecord) {
         val current = readAll().toMutableList()
-        current.add(0, record)
-        val limited = current.take(MAX_RECORDS)
+
+        val withoutDuplicate = current.filterNot { existing ->
+            isDuplicate(existing, record)
+        }.toMutableList()
+
+        withoutDuplicate.add(0, record)
+        val limited = withoutDuplicate.take(MAX_RECORDS)
 
         val array = JSONArray()
         limited.forEach { item ->
@@ -61,8 +66,24 @@ class AttentionRepository(context: Context) {
         }
     }
 
+    private fun isDuplicate(existing: AttentionRecord, incoming: AttentionRecord): Boolean {
+        if (existing.packageName != incoming.packageName) return false
+
+        val existingTitle = existing.title.trim()
+        val incomingTitle = incoming.title.trim()
+        val existingText = existing.text.trim()
+        val incomingText = incoming.text.trim()
+
+        val sameContent = existingTitle == incomingTitle && existingText == incomingText
+        if (!sameContent) return false
+
+        val delta = kotlin.math.abs(existing.timestampMs - incoming.timestampMs)
+        return delta <= DUPLICATE_WINDOW_MS
+    }
+
     companion object {
         private const val KEY_RECORDS = "records"
         private const val MAX_RECORDS = 100
+        private const val DUPLICATE_WINDOW_MS = 5 * 60 * 1000L
     }
 }
