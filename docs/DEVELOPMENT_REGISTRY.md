@@ -593,6 +593,7 @@ Jon tested the build on the same Motorola used for the Run #25 baseline.
 - Time to first generated chunk: **38,905 ms**.
 - Generation after first chunk: **~1,364 ms** (derived from 40,269 - 38,905 because the typed telemetry value was partially garbled as `136e`).
 - Emitted chunks: **11**.
+- Final visible output: **37 characters**.
 - Compared with Run #25: total response improved from 58,807 ms to 40,269 ms (~31.5% faster), while time-to-first-chunk worsened from 13,544 ms to 38,905 ms. Post-first generation collapsed from 45,261 ms to ~1,364 ms, and chunks fell from 125 to 11.
 
 ### Physical RAM / swap evidence
