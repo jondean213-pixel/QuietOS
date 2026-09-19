@@ -661,3 +661,48 @@ This single test does not prove conversation reuse itself causes the regression;
 
 ### Next gate
 Preserve the low-memory token/KV settings. Investigate the pre-first-chunk path, including runtime/backend behavior and warm/cold inference effects, with controlled repeat measurements before broadening Alpha scope.
+
+
+## Alpha 0.1 — Run #38 physical prefill test
+
+### Configuration under test
+- CI Run #38, commit `ced498a503b5e770e9ee54e5b88621128ffeefd2`.
+- Persistent Qwen conversation retained.
+- LiteRT-LM `prefillPrefaceOnInit = true` enabled on the real conversation.
+- 512-token engine/KV budget retained.
+- 64 max output tokens retained.
+- Thinking disabled.
+- CPU backend unchanged.
+
+### Physical startup evidence
+Motorola screenshot confirms:
+- Load time: **8,489 ms**.
+- Reported warmup/prefill time: **29 ms**.
+
+### Physical response telemetry
+Motorola screenshot confirms:
+- Response: **49,831 ms**.
+- First chunk: **48,894 ms**.
+- After first: **936 ms**.
+- Total: **49,831 ms**.
+- Chunks: **9**.
+- Characters: **34**.
+
+### Comparison / interpretation
+- Versus Run #37, TTFC improved from 57,046 ms to 48,894 ms (~14.3% faster) and total response improved from 58,067 ms to 49,831 ms (~14.2% faster).
+- Versus Run #29, Run #38 is still slower: Run #29 TTFC was 38,905 ms and total was 40,269 ms.
+- Post-first generation remains fast (<1 second), so the dominant problem remains pre-first-chunk work.
+- The reported prefill/warmup duration of only 29 ms indicates that `prefillPrefaceOnInit` did not move a substantial amount of the 49-second first-response cost into startup for this configuration. One likely reason is that the conversation has little/no preface or system instruction to prefill; this should be treated as a hypothesis, not a verified cause.
+
+### RAM evidence boundary
+The RAM screenshot supplied alongside this test is timestamped 10:49, while Run #38 startup/response screenshots are timestamped 11:13 and 11:16. Therefore it is not accepted as Run #38 RAM evidence. No new Run #38 RAM claim is recorded from that image.
+
+### Status
+- Local inference: PASS.
+- Model persistence: PASS.
+- Post-first generation: PASS / fast for short response.
+- TTFC: still FAIL for normal conversation.
+- Prefill experiment: small improvement versus Run #37, not sufficient, and not better than Run #29 baseline.
+
+### Next gate
+Keep the low-memory token/KV settings. Move the controlled investigation to CPU/backend/runtime configuration and warm-vs-cold execution, because conversation prefill has not solved the dominant TTFC problem.
