@@ -1348,3 +1348,28 @@ Evidence:
 
 Next gate:
 Verify CI. Only after a green build should Run #92 Step 2 connect this state foundation to Android speech-recognition lifecycle/permission behavior.
+
+
+## 2026-09-20 - Run #92 Step 1 CI PASS / voice-command physical gate
+
+Status: CI PASS / PHYSICAL VOICE-COMMAND VERIFICATION NEXT
+
+CI evidence:
+- GitHub Actions run #96, run ID 35464853219, completed SUCCESS.
+- Tested head commit: 63a5a6e23dfce16bd8717c4cf3064063fdddbe0f.
+- Unit tests: PASS.
+- Debug APK build: PASS.
+- Artifact upload: PASS.
+- Artifact: QuietOS-alpha-debug, artifact ID 10590029920.
+- Artifact SHA-256: 3470737d597b945d2e05822d96dab7f9fc987ce2661b70b1471bba272a62c7ac.
+
+Recovered roadmap gate:
+Before advancing the hands-free wake path, physically verify the existing voice-control layer on the Motorola:
+1. Attention Mode ON.
+2. Attention Mode OFF.
+3. Summarize digest.
+4. Clear attention log.
+5. Refresh attention.
+6. "What did QuietOS catch?"
+
+The Run #92 Step 1 listening-state controller remains isolated and is parked until this physical gate is complete. No further hands-free implementation is claimed or started at this checkpoint.
