@@ -1258,3 +1258,25 @@ Scope:
 - Voice normalization remains unchanged.
 - Attention Engine remains unchanged.
 - Physical Motorola verification pending.
+
+
+## 2026-09-19 - Run #91 physical identity-grounding PASS
+
+Physical Motorola screenshots supplied by Jon Dean show:
+- Android speech transcription "who is John Dean" corrected by QuietOS to "who is Jon Dean".
+- Deterministic Jon Dean identity answer returned with response 0 ms / chunks 0.
+- Android speech transcription "what is quiet OS" corrected by QuietOS to "what is QuietOS".
+- QuietOS returned the grounded canonical description beginning: "QuietOS is a local-first Android attention-intelligence and personal-assistant system by DeanWay Labs..."
+- DeanWay Labs voice normalization and deterministic memory remained correct at 0 ms.
+- "who are you" continued to return Gemma's deterministic identity at 0 ms.
+
+Assessment:
+- Voice normalization regression: PASS.
+- Jon Dean identity routing: PASS.
+- QuietOS identity grounding fix from Run #91: PHYSICAL PASS.
+- DeanWay Labs deterministic routing: PASS.
+- Gemma identity routing: PASS.
+- No evidence in this test of regression to the Attention Engine; Attention Mode was OFF during the screenshots and attention behavior was not exercised.
+
+Milestone decision:
+- Treat Run #91 identity/voice grounding as the current verified baseline.
