@@ -622,3 +622,42 @@ The reduced token/KV budgets materially changed runtime behavior. Memory pressur
 
 ### Next gate
 Keep the reduced memory/output budgets for the next controlled experiment unless evidence requires reversal. Investigate the pre-first-chunk path and backend/runtime behavior without broadening Alpha scope. Repeat the same physical RAM and latency protocol after each change.
+
+
+## Alpha 0.1 — Run #32 physical conversation-reuse test
+
+### Configuration under test
+- CI Run #32, commit `db36f7314f813aadd2ee3945c79c02cac7a8a098`.
+- Qwen conversation created once at model load and reused for sends.
+- 512-token engine/KV budget retained.
+- 64 max output tokens retained.
+- Thinking disabled.
+- CPU backend unchanged.
+
+### Physical telemetry evidence
+Screenshot from Jon's Motorola confirms:
+- Response: **54,433 ms**.
+- First chunk: **53,389 ms**.
+- After first: **1,043 ms**.
+- Total: **54,433 ms**.
+- Chunks: **9**.
+- Characters: **54**.
+
+### RAM / swap observations
+Under the same Termux/Debian comparative setup, observed samples included:
+- Pre-load baseline: used RAM ~2,111 MB; available ~1,343 MB; swap used ~1,115 MB.
+- Loaded/early: used RAM ~2,280 MB; available ~1,129 MB; swap used ~1,256 MB.
+- Mid-generation: used RAM ~2,240 MB; available ~1,145 MB; swap used ~1,289 MB.
+- Later sample: used RAM ~2,084 MB; available ~1,289 MB; swap used ~1,741 MB.
+
+### Comparison / interpretation
+- Conversation reuse did **not** improve first-chunk latency on this first physical test. TTFC worsened from Run #29's 38,905 ms to 53,389 ms.
+- Post-first generation remained fast at ~1.043 s, confirming the dominant problem remains before the first emitted chunk.
+- Memory behavior remained much better than Run #25, though the later swap sample rose to ~1,741 MB and was not as clean as Run #29's ~1,571 MB later sample.
+- The screenshot resolves the earlier typed-value ambiguity and confirms the telemetry values above.
+
+### Evidence boundary
+This single test does not prove conversation reuse itself causes the regression; device state, thermal state, background activity, cache state, or runtime warmup may contribute. However, there is no evidence from this run that reuse reduces TTFC, so it should not be treated as an optimization win.
+
+### Next gate
+Preserve the low-memory token/KV settings. Investigate the pre-first-chunk path, including runtime/backend behavior and warm/cold inference effects, with controlled repeat measurements before broadening Alpha scope.
