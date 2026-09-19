@@ -28,7 +28,7 @@ class LiteRtQwenModel : LocalModel {
             val created = Engine(EngineConfig(
                 modelPath = modelPath,
                 backend = Backend.CPU(threadCount = 4),
-                maxNumTokens = 512
+                maxNumTokens = 768
             ))
             created.initialize()
 
