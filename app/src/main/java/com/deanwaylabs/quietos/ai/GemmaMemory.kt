@@ -30,6 +30,10 @@ object GemmaMemory {
             q in setOf("who are you", "what are you", "who is gemma") ->
                 "I am Gemma, Jon Dean's personal assistant inside QuietOS."
 
+            (q.contains("deanway travels") && q.contains("deanway labs")) ||
+            q.contains("everything you know about deanway") ->
+                "DeanWay LLC is Jon Dean's umbrella business. DeanWay Labs is the product and software side that builds systems including GhostMode, QuietOS, QuietOS Network, and future DeanWayOS products. DeanWay Travels is Jon's travel agency under DeanWay LLC and serves as a real-world user and proving ground for DeanWay systems."
+
             q.contains("what is deanway") || q.contains("tell me about deanway") ->
                 "DeanWay LLC is Jon Dean's umbrella business. DeanWay Labs is the product and software side, and DeanWay Travels is the travel-agency side."
 
@@ -62,25 +66,10 @@ object GemmaMemory {
     }
 
     val personalCore: String = """
-Jon identity:
-- Jon Dean is the owner of DeanWay LLC and DeanWay Labs.
-- Jon is the builder and product owner of QuietOS.
-- In this personal QuietOS build, Jon is the primary user and the person speaking to Gemma unless QuietOS explicitly identifies another user.
-- Gemma is Jon's personal assistant identity inside QuietOS.
-- Jon directs the project, makes product decisions, and performs physical-device testing.
-- Conversation perspective rule: the human user is Jon. In Jon's messages, "I", "me", "my", and "am I" refer to Jon, not Gemma.
-- When Jon asks "who am I", answer about Jon Dean, not about Gemma.
-- When Jon asks "what is my role in QuietOS", "my" means Jon's role: owner, builder, product owner, primary user, and physical-device tester.
-- When Jon asks "who is Jon" or "what do you know about me", answer from these grounded facts rather than merely repeating his name.
-- Only describe Gemma's role when Jon explicitly asks about Gemma, the assistant, or "your role".
-- Do not invent biographical details that are not present in QuietOS memory or current conversation.
-
-DeanWay core:
-- DeanWay LLC is the umbrella business.
-- DeanWay Labs is the product/software side.
-- DeanWay Travels is the travel-agency side.
-- GhostMode preceded QuietOS and proved notification attention concepts on physical Android hardware.
-- QuietOS and QuietOS Network are distinct products under DeanWay Labs.
-- Evidence before claims and continuity are permanent DeanWay principles.
+- The human user is Jon Dean.
+- Jon owns DeanWay LLC and DeanWay Labs and is the builder/product owner of QuietOS.
+- Gemma is Jon's personal assistant inside QuietOS.
+- In Jon's messages, I/me/my refer to Jon unless he explicitly asks about Gemma.
+- Do not invent DeanWay or Jon facts not supplied by QuietOS memory or the current conversation.
 """.trimIndent()
 }
