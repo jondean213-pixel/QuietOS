@@ -1315,3 +1315,36 @@ Before any hands-free behavior is claimed complete, record:
 9. failures, fixes, and rollback point.
 
 No undocumented prior hands-free behavior is to be reconstructed as fact. Evidence comes before claims.
+
+
+## 2026-09-20 - Run #92 Step 1: hands-free listening state foundation
+
+Status: SOURCE IMPLEMENTED / CI PENDING / PHYSICAL BEHAVIOR NOT YET IMPLEMENTED
+
+Starting state:
+- Run #91 remains the physically verified keeper baseline.
+- Existing push-to-talk, VoiceTextNormalizer, VoiceCommandRouter, Gemma routing, and Attention Engine were inspected and left unchanged.
+- MainActivity currently launches Android RecognizerIntent only from the manual Talk to Gemma button.
+- AndroidManifest currently contains no hands-free voice service or microphone permission.
+
+Step 1 implementation:
+- Added voice/HandsFreeListeningController.kt.
+- Added a deliberately small state machine with OFF, READY, LISTENING, PROCESSING, and ERROR states.
+- The controller currently owns state only. It does not yet open the microphone, create a SpeechRecognizer, run a foreground service, or alter existing routing.
+- Added unit tests for enable/ready, listening/processing/ready lifecycle, disabled-event protection, and disable/off behavior.
+
+Protected boundaries:
+- No Attention Engine files changed.
+- No Gemma/model files changed.
+- No VoiceCommandRouter or VoiceTextNormalizer behavior changed.
+- No MainActivity behavior changed.
+- No Android permissions changed.
+
+Evidence:
+- Source commit: 4bf0b8b140823113e1c9f40a45a1479388c656e8.
+- Test commit: 02c869937bf7e00cb7f333c59ba34246025b9f7d.
+- CI result: PENDING.
+- Motorola physical result: NOT APPLICABLE yet because Step 1 intentionally adds no active microphone behavior.
+
+Next gate:
+Verify CI. Only after a green build should Run #92 Step 2 connect this state foundation to Android speech-recognition lifecycle/permission behavior.
