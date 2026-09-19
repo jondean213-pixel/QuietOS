@@ -1071,3 +1071,26 @@ Verification state:
 - Source implemented.
 - CI/build verification pending.
 - Physical Motorola duplicate-collapse test pending.
+
+
+## 2026-09-19 - Run #78 physical emergency bypass PASS; digest timing improved
+
+Physical Motorola evidence supplied by Jon Dean:
+- QuietOS Attention Mode was ON.
+- Attention Engine showed 3 captured records: NOW 1, SOON 0, DIGEST 2, QUIET 0.
+- 2 records were cancelled by QuietOS.
+- The emergency test email was classified NOW with reason `deterministic emergency rule`.
+- The emergency notification was left in Android's normal notification flow and reached the notification bar as intended.
+- DIGEST notifications were intercepted/cancelled.
+- Gemma digest summarization completed locally with reported timing: first chunk 11,423 ms, total 12,838 ms, chunks 13.
+- This is materially faster than the prior observed 27,122 ms digest completion, though the first-token delay remains noticeable.
+
+Assessment:
+- Emergency classification: PHYSICAL PASS.
+- Emergency bypass/pass-through: PHYSICAL PASS.
+- DIGEST interception: PHYSICAL PASS in this sample.
+- Local Gemma digest completion: PHYSICAL PASS.
+- Duplicate-record collapse is not directly proven by this screenshot because no repeated stored duplicate pair is present.
+
+Additional observation:
+- Some Android notification fields contain overlapping EXTRA_TEXT / EXTRA_BIG_TEXT content, causing repeated phrases inside a single stored record even when repository-level duplicate collapse works. Future cleanup should prefer the richer field when one contains the other instead of concatenating both.
