@@ -641,7 +641,7 @@ Screenshot from Jon's Motorola confirms:
 - After first: **1,043 ms**.
 - Total: **54,433 ms**.
 - Chunks: **9**.
-- Characters: **54**.
+- Characters: **34**.
 
 ### RAM / swap observations
 Under the same Termux/Debian comparative setup, observed samples included:
