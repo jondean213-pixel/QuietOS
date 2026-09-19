@@ -15,15 +15,11 @@ class QuietNotificationListenerService : NotificationListenerService() {
 
         val extras = posted.notification.extras
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty().trim()
-        val text = listOfNotNull(
+        val text = selectBestText(
             extras.getCharSequence(Notification.EXTRA_TEXT)?.toString(),
             extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString(),
             extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()
         )
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-            .distinct()
-            .joinToString(" | ")
 
         val combined = listOf(title, text)
             .filter { it.isNotBlank() }
@@ -53,6 +49,23 @@ class QuietNotificationListenerService : NotificationListenerService() {
             )
         )
 
+    }
+
+    private fun selectBestText(vararg rawParts: String?): String {
+        val parts = rawParts
+            .mapNotNull { it?.trim()?.takeIf(String::isNotEmpty) }
+            .distinct()
+
+        if (parts.isEmpty()) return ""
+
+        val richest = parts.maxByOrNull { it.length }.orEmpty()
+        val extras = parts.filter { part ->
+            part != richest &&
+                !richest.contains(part, ignoreCase = true) &&
+                !part.contains(richest, ignoreCase = true)
+        }
+
+        return (listOf(richest) + extras).distinct().joinToString(" | ")
     }
 
     companion object {

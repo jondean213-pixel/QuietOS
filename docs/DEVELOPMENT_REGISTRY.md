@@ -1094,3 +1094,24 @@ Assessment:
 
 Additional observation:
 - Some Android notification fields contain overlapping EXTRA_TEXT / EXTRA_BIG_TEXT content, causing repeated phrases inside a single stored record even when repository-level duplicate collapse works. Future cleanup should prefer the richer field when one contains the other instead of concatenating both.
+
+
+## 2026-09-19 - Duplicate cleanup v2 after physical duplicates remained
+
+Physical feedback:
+- Jon reported duplicate records were still hanging around after Run #78.
+
+Root causes identified:
+1. The first dedupe change only affected newly added notifications. Existing duplicate records already stored in SharedPreferences survived app updates.
+2. Android can expose overlapping EXTRA_TEXT / EXTRA_BIG_TEXT / EXTRA_SUB_TEXT fields, so visually identical notifications can have slightly different stored strings.
+
+Fix:
+- Added one-time dedupe migration v2 for existing stored records. It collapses semantically identical package/title/text records already in the retained log.
+- New-record dedupe now uses normalized lowercase/whitespace semantic keys plus the existing 5-minute live duplicate window.
+- Notification capture now prefers the richest text field and only appends non-overlapping extra fields, preventing repeated phrases inside one captured record.
+- Classification/interception behavior is unchanged.
+
+Verification state:
+- Source implemented.
+- CI/build verification pending.
+- Physical Motorola verification pending.
