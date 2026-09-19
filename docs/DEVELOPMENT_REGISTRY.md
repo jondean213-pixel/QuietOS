@@ -1219,3 +1219,23 @@ Scope:
 - This corrects known personal/product vocabulary deterministically rather than asking Gemma to guess.
 - Attention Engine logic is unchanged.
 - Physical Motorola verification pending.
+
+
+## 2026-09-19 - Voice vocabulary normalization physical PASS
+
+Physical Motorola evidence supplied by Jon Dean on Run #87:
+- "Dean way labs" was corrected to "DeanWay Labs" before routing.
+- "Dean way travels" was corrected to "DeanWay Travels" before routing.
+- "quiet OS" was corrected to "QuietOS" before routing.
+- "Ghost mode" was corrected to "GhostMode" before routing.
+- Deterministic DeanWay memory responses for DeanWay Labs, DeanWay Travels, GhostMode, and Gemma identity returned with 0 ms model-generation telemetry where applicable.
+
+Assessment:
+- Voice vocabulary normalization layer: PHYSICAL PASS.
+- Canonical DeanWay vocabulary is now being corrected before command/memory/model routing.
+- The original raw speech remains visible for evidence, and the corrected form is shown separately.
+- Attention Engine behavior remains unchanged.
+
+Separate downstream observation:
+- The generated QuietOS explanation still rendered "Dean Way Labs" with a space and included an inaccurate statement that Gemma was initially trained by LiteRT-LM. This is a model-output grounding/canonicalization issue, not a speech-recognition or voice-normalization failure.
+- Treat voice normalization as passed while tracking model-output canonicalization/grounding separately.
