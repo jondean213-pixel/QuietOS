@@ -1,8 +1,10 @@
 package com.deanwaylabs.quietos
 
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.provider.Settings
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
@@ -17,6 +19,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.deanwaylabs.quietos.ai.LiteRtQwenModel
 import com.deanwaylabs.quietos.ai.ModelState
+import com.deanwaylabs.quietos.attention.AttentionRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -30,6 +33,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var input: EditText
     private lateinit var send: Button
     private lateinit var choose: Button
+    private lateinit var attentionStatus: TextView
+    private lateinit var attentionLog: TextView
+    private val attentionRepository by lazy { AttentionRepository(this) }
 
     private val picker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -93,6 +99,31 @@ class MainActivity : AppCompatActivity() {
         }
         column.addView(status)
         column.addView(choose)
+
+        attentionStatus = TextView(this).apply {
+            text = "Attention Engine: capture not yet verified"
+            textSize = 16f
+        }
+        val notificationAccess = Button(this).apply {
+            text = "Enable Notification Access"
+            setOnClickListener {
+                startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            }
+        }
+        val refreshAttention = Button(this).apply {
+            text = "Refresh Attention Log"
+            setOnClickListener { refreshAttentionLog() }
+        }
+        attentionLog = TextView(this).apply {
+            text = "No captured notifications yet."
+            textSize = 14f
+            setPadding(0, pad / 2, 0, pad / 2)
+        }
+        column.addView(attentionStatus)
+        column.addView(notificationAccess)
+        column.addView(refreshAttention)
+        column.addView(attentionLog)
+
         column.addView(
             transcriptScroll,
             LinearLayout.LayoutParams(
@@ -185,6 +216,27 @@ class MainActivity : AppCompatActivity() {
                 send.isEnabled = model.state == ModelState.READY
             }
         }
+    }
+
+    private fun refreshAttentionLog() {
+        val records = attentionRepository.readAll()
+        if (records.isEmpty()) {
+            attentionStatus.text = "Attention Engine: no captured notifications yet"
+            attentionLog.text = "No captured notifications yet."
+            return
+        }
+
+        val counts = records.groupingBy { it.classification }.eachCount()
+        attentionStatus.text = "Attention Engine: captured ${records.size} | NOW ${counts[com.deanwaylabs.quietos.attention.AttentionClass.NOW] ?: 0} | SOON ${counts[com.deanwaylabs.quietos.attention.AttentionClass.SOON] ?: 0} | DIGEST ${counts[com.deanwaylabs.quietos.attention.AttentionClass.DIGEST] ?: 0} | QUIET ${counts[com.deanwaylabs.quietos.attention.AttentionClass.QUIET] ?: 0}"
+
+        attentionLog.text = records.take(5).joinToString("\n\n") { record ->
+            "[${record.classification}] ${record.title.ifBlank { record.packageName }}\n${record.text.take(180)}\nWhy: ${record.reason}"
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::attentionStatus.isInitialized) refreshAttentionLog()
     }
 
     private fun queryDisplayName(uri: Uri): String? {

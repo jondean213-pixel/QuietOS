@@ -942,3 +942,42 @@ Next memory expansion:
 - Broadened the same deterministic memory layer to cover stable DeanWay topics in one batched change: DeanWay LLC, DeanWay Labs, DeanWay Travels, QuietOS purpose, QuietOS Network, GhostMode lineage, DeanWay Absolutes, locked QuietOS pricing baseline, and the QuietOS/Gemma permissions boundary.
 - Kept the always-loaded personal core concise; known factual probes are answered by QuietOS memory directly rather than forcing the 1B model to reconstruct them.
 - Build strategy changed to reduce tester churn: batch several verified memory additions before generating the next APK instead of creating a new phone download for each tiny fact.
+
+
+## 2026-09-19 - Run #73 physical memory-routing PASS; Attention Engine integration batch started
+
+Physical Motorola evidence supplied by Jon Dean for Run #73:
+- Prompt: `what are the 5 absolutes?`
+- QuietOS deterministic memory returned the canonical five DeanWay Absolutes.
+- Response telemetry: first chunk 0 ms; total 1 ms; chunks 0; chars 337.
+- Prompt: `what is DeanWayLLC`
+- QuietOS deterministic memory correctly returned DeanWay LLC as Jon Dean's umbrella business with DeanWay Labs and DeanWay Travels.
+- Response telemetry: first chunk 0 ms; total 0 ms; chunks 0; chars 138.
+
+Assessment:
+- Canonical five-Absolutes retrieval: PHYSICAL PASS.
+- DeanWay LLC deterministic recall: PHYSICAL PASS.
+- Run #73 becomes the current verified memory-routing baseline.
+
+### Attention Engine integration batch
+Implemented source for the next functional QuietOS milestone:
+- Android NotificationListenerService capture adapter.
+- Deterministic Attention Engine categories NOW / SOON / DIGEST / QUIET.
+- Explicit emergency precedence over lower-priority rules.
+- Direct-request and promotional keyword inference.
+- Local capped attention-record repository retaining the latest 100 captured records.
+- Main UI controls for Android notification-listener settings and attention-log refresh.
+- UI summary counts plus recent classifications and explainable reasons.
+- Added unit coverage for emergency precedence, explicit/inferred direct requests, promotions, and default digest behavior.
+
+Safety boundary:
+- This increment is capture + classify only.
+- QuietOS does NOT cancel, delay, suppress, or replace original Android notifications yet.
+- Delivery intervention remains blocked until physical classification evidence exists.
+
+Verification state before CI:
+- Source implemented: YES.
+- Unit tests/build: NOT YET VERIFIED.
+- Notification listener physical capture: NOT YET VERIFIED.
+- Classification behavior on Motorola: NOT YET VERIFIED.
+- Notification suppression/delay: NOT IMPLEMENTED.
