@@ -1350,9 +1350,9 @@ Next gate:
 Verify CI. Only after a green build should Run #92 Step 2 connect this state foundation to Android speech-recognition lifecycle/permission behavior.
 
 
-## 2026-09-20 - Run #92 Step 1 CI PASS / voice-command physical gate
+## 2026-09-20 - Run #92 Step 1 CI PASS / hands-free development continues
 
-Status: CI PASS / PHYSICAL VOICE-COMMAND VERIFICATION NEXT
+Status: CI PASS / HANDS-FREE WAKE PATH IS THE ACTIVE DEVELOPMENT TARGET
 
 CI evidence:
 - GitHub Actions run #96, run ID 35464853219, completed SUCCESS.
@@ -1363,13 +1363,13 @@ CI evidence:
 - Artifact: QuietOS-alpha-debug, artifact ID 10590029920.
 - Artifact SHA-256: 3470737d597b945d2e05822d96dab7f9fc987ce2661b70b1471bba272a62c7ac.
 
-Recovered roadmap gate:
-Before advancing the hands-free wake path, physically verify the existing voice-control layer on the Motorola:
-1. Attention Mode ON.
-2. Attention Mode OFF.
-3. Summarize digest.
-4. Clear attention log.
-5. Refresh attention.
-6. "What did QuietOS catch?"
+Roadmap clarification:
+- The recovered roadmap recorded an earlier proposal to physically re-run the existing voice-command suite before hands-free work.
+- Jon Dean explicitly directed that this repeated physical-verification step is NOT being performed again.
+- Existing verified voice routing, normalization, deterministic memory/identity behavior, Gemma fallback, and Attention Engine keeper behavior remain protected baselines rather than redevelopment targets.
+- Run #92 therefore continues directly with the hands-free wake/listening path.
 
-The Run #92 Step 1 listening-state controller remains isolated and is parked until this physical gate is complete. No further hands-free implementation is claimed or started at this checkpoint.
+Active Run #92 target:
+"Gemma..." -> wake/listen -> capture speech -> normalize through VoiceTextNormalizer -> route through the existing VoiceCommandRouter or Gemma conversation fallback -> return to ready/listening state.
+
+The Run #92 Step 1 HandsFreeListeningController remains the CI-passing state foundation for this work. No active microphone or wake behavior is claimed at this checkpoint.
