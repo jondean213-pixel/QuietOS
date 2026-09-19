@@ -576,3 +576,48 @@ Jon measured Android memory from Termux/Debian on the same Motorola used for Qui
 
 ### Next gate
 Preserve these measurements as the first RAM comparison baseline. Optimization work must be followed by the same measurement sequence so improvements are evidence-based. Do not expand Attention Engine scope until Qwen runtime latency, RAM pressure, and sustained stability are characterized sufficiently.
+
+
+## Alpha 0.1 — Run #29 physical optimization comparison
+
+### Configuration under test
+- CI Run #29, commit `19e315ce79fc97c43158e02c45a872d4e5a82bfc`.
+- LiteRT-LM CPU backend unchanged.
+- Engine maxNumTokens reduced from 1024 to 512.
+- Conversation maxOutputToken reduced from 128 to 64.
+- Thinking remained disabled.
+
+### Physical latency evidence
+Jon tested the build on the same Motorola used for the Run #25 baseline.
+- App response time: **40,269 ms**.
+- Time to first generated chunk: **38,905 ms**.
+- Generation after first chunk: **~1,364 ms** (derived from 40,269 - 38,905 because the typed telemetry value was partially garbled as `136e`).
+- Emitted chunks: **11**.
+- Compared with Run #25: total response improved from 58,807 ms to 40,269 ms (~31.5% faster), while time-to-first-chunk worsened from 13,544 ms to 38,905 ms. Post-first generation collapsed from 45,261 ms to ~1,364 ms, and chunks fell from 125 to 11.
+
+### Physical RAM / swap evidence
+Same Termux/Debian environment was left running for comparison. The new baseline before loading QuietOS/Qwen was approximately: used RAM 2,158 MB; free 122 MB; available 1,233 MB; swap used 1,388 MB.
+Observed subsequent samples were:
+- Qwen loaded/idle: used RAM **2,362 MB**, free **144 MB**, available **1,074 MB**, swap used **1,533 MB**.
+- Early/send sample: used RAM **2,316 MB**, free **139 MB**, available **1,077 MB**, swap used **1,546 MB**.
+- Mid-generation sample: used RAM **2,268 MB**, free **179 MB**, available **1,111 MB**, swap used **1,573 MB**.
+- Later-generation sample: used RAM **2,281 MB**, free **140 MB**, available **1,099 MB**, swap used **1,571 MB**.
+
+### Comparison with Run #25
+- Run #25 loaded/idle swap: 1,284 MB; later generation swap: 2,670 MB (+1,386 MB during generation).
+- Run #29 loaded/idle swap: 1,533 MB; later generation swap: ~1,571 MB (+38 MB during generation).
+- Run #29 therefore shows dramatically less additional swap growth during generation under this test sequence.
+- Loaded/idle physical used RAM is also lower than Run #25 (2,362 MB vs 2,670 MB), although whole-device background variation means this is not isolated process RSS.
+
+### Interpretation / evidence boundary
+The reduced token/KV budgets materially changed runtime behavior. Memory pressure during generation improved substantially, and total response time improved by about one third. However, almost the entire remaining latency now occurs before the first emitted chunk. This suggests the next optimization target is startup/prefill/conversation setup/backend behavior rather than post-first decode. This test does not yet prove the exact cause of the 38.9 s TTFC, isolated QuietOS process RAM, token throughput, or thermal behavior.
+
+### Status
+- Local inference: PASS.
+- Model persistence: PASS.
+- Memory pressure: materially improved versus Run #25, but still requires characterization.
+- Total latency: improved but still FAIL for normal conversation.
+- TTFC: regressed and is now the dominant performance problem.
+
+### Next gate
+Keep the reduced memory/output budgets for the next controlled experiment unless evidence requires reversal. Investigate the pre-first-chunk path and backend/runtime behavior without broadening Alpha scope. Repeat the same physical RAM and latency protocol after each change.
