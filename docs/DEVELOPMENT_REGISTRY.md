@@ -730,3 +730,31 @@ This is a single physical conversational test. It verifies that Gemma 3 1B can r
 
 ### Next gate
 Measure Gemma RAM/swap using the same Termux/Debian protocol, then test repeated conversation and representative work tasks. Do not select the final brain until Gemma proves both capability and resource headroom for QuietOS voice/animation/custom presentation.
+
+
+## 2026-09-19 - Gemma 3 1B physical RAM/latency follow-up
+
+### Physical evidence supplied by Jon Dean
+QuietOS on the Motorola auto-loaded the saved Gemma 3 1B INT4 LiteRT-LM candidate. The installed test build still displayed the older hardcoded Qwen UI labels; this does not identify the loaded model.
+
+App telemetry from the follow-up run:
+- Model load: **18,260 ms**
+- Warmup: **10 ms**
+- Response: **9,288 ms**
+- Time to first chunk: **2,549 ms**
+- After first chunk: **6,738 ms**
+- Total: **9,288 ms**
+- Chunks: **64**
+- Characters: **248**
+
+Termux/Debian free -m screenshots across the test showed:
+- Physical RAM total: **3,643 MB**
+- Observed RAM used range: **2,229-2,369 MB**
+- Observed available range: **853-1,203 MB**
+- Observed swap used range: **1,199-2,016 MB**
+
+### Interpretation
+Gemma repeated the sub-10-second total-response result and ~2.5-second first-output behavior, so the latency improvement over Qwen is reproducible across at least two physical conversational runs. The RAM readings are in roughly the same broad whole-device range as the optimized Qwen tests rather than proving a dramatic RAM reduction. Swap varied substantially during the captured sequence, so phase-by-phase causal attribution is not yet justified from this screenshot alone. The key positive result is that Gemma delivers much better interactive latency without an obvious catastrophic RAM blow-up on the 3.6 GB device.
+
+### Evidence boundary / next gate
+Do not claim Gemma is lighter than Qwen yet. For a clean memory comparison, capture labeled snapshots at closed baseline, loaded idle, immediate generation, ~15 seconds, and post-generation in one uninterrupted test, then compare deltas from the same baseline. Continue repeated-turn and work-quality testing before final model selection.
