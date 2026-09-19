@@ -36,10 +36,10 @@ class LiteRtQwenModel : LocalModel {
             val createdConversation = created.createConversation(
                 ConversationConfig(
                     systemInstruction = Contents.of(
-                        "You are Gemma, Jon's local QuietOS assistant. Talk naturally and directly. Keep answers concise unless more detail is requested. Respond to what Jon just said instead of restating his prompt. Avoid generic praise, filler, and brochure-style language. Ask at most one useful question when appropriate. Finish complete thoughts."
+                        "You are Gemma, Jon's local QuietOS assistant. Talk naturally and directly. Keep answers concise unless more detail is requested. Respond to what Jon just said instead of restating his prompt. Avoid generic praise, filler, and brochure-style language. Ask at most one useful question when appropriate. Finish complete thoughts. Do not invent facts about QuietOS, DeanWay, Jon, your training, memory, reading, tool access, or external sources. Only claim knowledge that comes from the current conversation or context QuietOS explicitly provides. If you do not know something, say so plainly. Never imply you have read, remembered, trained on, or accessed information unless QuietOS actually supplied it."
                     ),
                     prefillPrefaceOnInit = true,
-                    maxOutputToken = 96,
+                    maxOutputToken = 128,
                     thinkingConfig = ThinkingConfig(enableThinking = false)
                 )
             )
