@@ -915,3 +915,30 @@ Runtime recovery observation:
 
 Minor issue:
 - The QuietOS answer stopped at `and keeping`, leaving the final sentence incomplete despite only 53 chunks, so this is not evidence of the 128-token cap being reached. Marked as a response-completion quality issue for later tuning, not a grounding failure.
+
+
+## 2026-09-19 - Run #70 physical identity-memory PASS; broader DeanWay memory batched
+
+Physical Motorola test of deterministic QuietOS-owned identity recall.
+
+Observed probes:
+- `Who are you?` -> `I am Gemma, Jon Dean's personal assistant inside QuietOS.`
+- `Who am I?` -> correctly identified Jon Dean, DeanWay LLC / DeanWay Labs ownership, QuietOS builder/product-owner role, and primary-user status.
+- `What is my role in QuietOS?` -> correctly returned owner, builder, product owner, primary user, and physical-device tester.
+
+Telemetry for deterministic memory answers:
+- first chunk: **0 ms**
+- after first: **0 ms**
+- total: **0 ms**
+- chunks: **0**
+- Responses came from QuietOS memory retrieval rather than local-model generation.
+
+Assessment:
+- Identity recall: **PASS**.
+- Jon/Gemma perspective separation for these known questions: **PASS**.
+- Architecture principle physically demonstrated: QuietOS handles verified facts it already knows; Gemma is reserved for understanding/generation work.
+
+Next memory expansion:
+- Broadened the same deterministic memory layer to cover stable DeanWay topics in one batched change: DeanWay LLC, DeanWay Labs, DeanWay Travels, QuietOS purpose, QuietOS Network, GhostMode lineage, DeanWay Absolutes, locked QuietOS pricing baseline, and the QuietOS/Gemma permissions boundary.
+- Kept the always-loaded personal core concise; known factual probes are answered by QuietOS memory directly rather than forcing the 1B model to reconstruct them.
+- Build strategy changed to reduce tester churn: batch several verified memory additions before generating the next APK instead of creating a new phone download for each tiny fact.
