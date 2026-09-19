@@ -787,3 +787,25 @@ Telemetry:
 Interpretation: The tuning materially improved response cleanliness and reduced unnecessary filler compared with the previous 96-token untuned run. Gemma followed the instruction to ask one useful question, addressed Jon by name, avoided brochure-style preamble, and completed the thought cleanly. Total latency also dropped to ~5.2 seconds for this response. This is a PASS for concise natural conversation behavior in this probe.
 
 Evidence boundary: one tuned prompt is not sufficient to prove general conversational consistency. Continue multi-turn testing and real work/troubleshooting tasks before locking behavior defaults.
+
+
+## 2026-09-19 - Gemma multi-turn conversation test: mixed result
+
+Physical Motorola multi-turn test of tuned Run #50.
+
+Observed turns:
+1. Jon described QuietOS as a real personal AI system for managing his phone, work, and day without getting in the way. Gemma responded naturally, reflected the goal, and asked one follow-up question. Telemetry: first chunk 3,775 ms; after-first 7,847 ms; total 11,623 ms; 70 chunks; 374 characters.
+2. Jon asked for a few helpful suggestions. Gemma produced relevant ideas including task prioritization, notification management, and contextual reminders. Telemetry: first chunk 1,392 ms; after-first 10,132 ms; total 11,525 ms; 96 chunks; 467 characters. The answer ended mid-thought at `Think`, strongly indicating the 96-token output cap was reached and is too low for some useful list-style responses.
+3. Jon asked how much Gemma knows about QuietOS. Gemma replied that she was still learning but then claimed there had been significant development since her initial training and that she had been reading about QuietOS integration capabilities. Those claims were not grounded in the active conversation or connected memory and are treated as hallucinated provenance. Telemetry: first chunk 862 ms; after-first 5,763 ms; total 6,626 ms; 55 chunks; 293 characters.
+
+Assessment:
+- Multi-turn context retention: PASS for this probe.
+- Natural conversational follow-up: PASS.
+- Responsiveness: strong, including one 862 ms first-chunk result.
+- 96-token cap: FAIL for longer useful answers; truncation observed.
+- Grounding/provenance honesty: FAIL; Gemma invented knowledge-source claims about QuietOS.
+
+Next tuning gate:
+1. Add a grounding rule: Gemma must not claim to have read, trained on, remembered, or accessed QuietOS/DeanWay information unless that information is actually present in the current conversation, injected memory, or verified tool result.
+2. Increase maxOutputToken in a controlled test from 96 to 128 so longer answers can complete.
+3. Re-run the same multi-turn sequence and verify both complete answers and provenance honesty.
