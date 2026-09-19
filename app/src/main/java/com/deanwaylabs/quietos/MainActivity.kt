@@ -24,6 +24,7 @@ import com.deanwaylabs.quietos.ai.ModelState
 import com.deanwaylabs.quietos.attention.AttentionRepository
 import com.deanwaylabs.quietos.voice.VoiceCommand
 import com.deanwaylabs.quietos.voice.VoiceCommandRouter
+import com.deanwaylabs.quietos.voice.VoiceTextNormalizer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -42,6 +43,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var interceptionButton: Button
     private val attentionRepository by lazy { AttentionRepository(this) }
     private val voiceRouter = VoiceCommandRouter()
+    private val voiceTextNormalizer = VoiceTextNormalizer()
 
     private val voiceLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode != Activity.RESULT_OK) return@registerForActivityResult
@@ -278,8 +280,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleVoiceInput(spoken: String) {
+        val normalizedSpeech = voiceTextNormalizer.normalize(spoken)
         transcript.append("\nJon (voice): $spoken\n")
-        when (val route = voiceRouter.route(spoken)) {
+        if (normalizedSpeech != spoken) {
+            transcript.append("QuietOS heard/corrected: $normalizedSpeech\n")
+        }
+        when (val route = voiceRouter.route(normalizedSpeech)) {
             is com.deanwaylabs.quietos.voice.VoiceRoute -> when (route.command) {
                 VoiceCommand.SUMMARIZE_DIGEST -> {
                     transcript.append("QuietOS: voice command accepted — summarize digest.\n")
