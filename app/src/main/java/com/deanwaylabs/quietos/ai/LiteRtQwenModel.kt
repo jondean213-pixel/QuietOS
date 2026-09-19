@@ -3,6 +3,8 @@ package com.deanwaylabs.quietos.ai
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
+import com.google.ai.edge.litertlm.ConversationConfig
+import com.google.ai.edge.litertlm.ThinkingConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withContext
@@ -20,7 +22,11 @@ class LiteRtQwenModel : LocalModel {
         state = ModelState.LOADING
         val started = System.nanoTime()
         try {
-            val created = Engine(EngineConfig(modelPath = modelPath, backend = Backend.CPU()))
+            val created = Engine(EngineConfig(
+                modelPath = modelPath,
+                backend = Backend.CPU(),
+                maxNumTokens = 1024
+            ))
             created.initialize()
             engine = created
             state = ModelState.READY
@@ -38,7 +44,12 @@ class LiteRtQwenModel : LocalModel {
         val startedNs = System.nanoTime()
         var firstChunkNs: Long? = null
         withTimeout(180_000L) {
-            active.createConversation().use { conversation ->
+            active.createConversation(
+                ConversationConfig(
+                    maxOutputToken = 128,
+                    thinkingConfig = ThinkingConfig(enableThinking = false)
+                )
+            ).use { conversation ->
                 conversation.sendMessageAsync(message).collect { chunk ->
                     if (firstChunkNs == null) firstChunkNs = System.nanoTime()
                     chunks++
