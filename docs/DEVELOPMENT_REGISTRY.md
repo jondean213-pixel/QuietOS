@@ -894,3 +894,24 @@ Next corrective work:
 - Add explicit Jon identity to the authoritative core reference (Jon Dean, owner/builder of DeanWay Labs/QuietOS; Gemma is his personal QuietOS assistant).
 - Add controlled recovery for zero-chunk generation: detect no-output completion, recover the conversation cleanly, preserve UI usability, and avoid raw exception text as the user-facing response.
 - Regression-test the QuietOS-purpose prompt and `Who is Jon?` after recovery work.
+
+
+## 2026-09-19 - Run #61 regression PASS: Jon identity and QuietOS grounding
+
+Physical Motorola regression test after adding explicit Jon identity and zero-chunk recovery.
+
+Prompt 1: `who is Jon`
+- Gemma answered: `Jon Dean owns QuietOS.`
+- Telemetry: first chunk **8,571 ms**; after first **586 ms**; total **9,157 ms**; chunks **6**; chars **22**.
+- Identity grounding: **PASS**. The prior incorrect `Jon is an account` answer was corrected.
+
+Prompt 2: `Tell me what you know about QuietOS and what its purpose is.`
+- Gemma correctly identified QuietOS as an attention-intelligence project by DeanWay Labs built by Jon Dean, and correctly stated that its primary purpose is intelligent notification handling rather than being an Android distribution or operating system.
+- Telemetry: first chunk **1,741 ms**; after first **5,382 ms**; total **7,124 ms**; chunks **53**; chars **261**.
+- QuietOS grounding: **PASS**.
+
+Runtime recovery observation:
+- The previous zero-chunk exception did **not** recur during these two regression prompts, so no recovery path was triggered in this test. Therefore the new recovery code remains implemented but not yet physically exercised.
+
+Minor issue:
+- The QuietOS answer stopped at `and keeping`, leaving the final sentence incomplete despite only 53 chunks, so this is not evidence of the 128-token cap being reached. Marked as a response-completion quality issue for later tuning, not a grounding failure.
