@@ -35,7 +35,7 @@ class LiteRtQwenModel : LocalModel {
             val createdConversation = created.createConversation(
                 ConversationConfig(
                     prefillPrefaceOnInit = true,
-                    maxOutputToken = 64,
+                    maxOutputToken = 96,
                     thinkingConfig = ThinkingConfig(enableThinking = false)
                 )
             )
