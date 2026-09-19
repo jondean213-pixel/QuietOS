@@ -1170,3 +1170,25 @@ Safety / regression boundary:
 - Emergency NOW/SOON pass-through and DIGEST/QUIET interception behavior remain unchanged.
 - Always-listening wake-word behavior is NOT implemented in this stage.
 - Physical speech recognition and command execution remain NOT VERIFIED until Motorola testing.
+
+
+## 2026-09-19 - Voice Stage 1 CI failure 001 and router correction
+
+Evidence:
+- Run #82 reached the unit-test step and failed before APK assembly.
+- The new voice-router tests exposed a phrase-matching defect in Attention Mode commands.
+
+Root cause:
+- The initial router searched for contiguous phrases such as `turn on` / `turn off`, but natural commands such as `turn Attention Mode on` insert the target words between the verb and state.
+
+Fix:
+- Attention Mode ON/OFF routing now explicitly accepts natural forms such as:
+  - turn Attention Mode on/off
+  - switch Attention Mode on/off
+  - enable/disable Attention Mode
+  - start/stop Attention Mode
+  - phrases ending in on/off when Attention Mode is explicitly named.
+- No Attention Engine behavior changed.
+
+Verification:
+- Fix committed; post-fix CI pending.

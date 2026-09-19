@@ -31,11 +31,23 @@ class VoiceCommandRouter {
                 VoiceCommand.SUMMARIZE_DIGEST
 
             normalized.contains("attention mode") &&
-                listOf("turn on", "switch on", "enable", "start").any { normalized.contains(it) } ->
+                (
+                    normalized.endsWith(" on") ||
+                    normalized.contains("enable attention mode") ||
+                    normalized.contains("start attention mode") ||
+                    normalized.contains("switch attention mode on") ||
+                    normalized.contains("turn attention mode on")
+                ) ->
                 VoiceCommand.ATTENTION_ON
 
             normalized.contains("attention mode") &&
-                listOf("turn off", "switch off", "disable", "stop").any { normalized.contains(it) } ->
+                (
+                    normalized.endsWith(" off") ||
+                    normalized.contains("disable attention mode") ||
+                    normalized.contains("stop attention mode") ||
+                    normalized.contains("switch attention mode off") ||
+                    normalized.contains("turn attention mode off")
+                ) ->
                 VoiceCommand.ATTENTION_OFF
 
             normalized.contains("clear") &&
