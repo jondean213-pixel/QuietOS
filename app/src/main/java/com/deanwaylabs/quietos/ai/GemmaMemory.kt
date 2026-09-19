@@ -8,6 +8,35 @@ package com.deanwaylabs.quietos.ai
  * behind a local store/retrieval layer.
  */
 object GemmaMemory {
+    fun answerKnownQuestion(message: String): String? {
+        val q = message.trim().lowercase()
+            .replace(Regex("[^a-z0-9' ]"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+
+        return when (q) {
+            "who am i",
+            "who am i jon",
+            "what do you know about me" ->
+                "You are Jon Dean, owner of DeanWay LLC and DeanWay Labs, builder and product owner of QuietOS, and the primary user of this personal QuietOS build."
+
+            "who is jon",
+            "who is jon dean" ->
+                "Jon Dean is the owner of DeanWay LLC and DeanWay Labs, the builder and product owner of QuietOS, and the primary user of this personal QuietOS build."
+
+            "what is my role in quietos",
+            "what's my role in quietos",
+            "what is my role" ->
+                "Your role in QuietOS is owner, builder, product owner, primary user, and physical-device tester."
+
+            "who are you",
+            "what are you" ->
+                "I am Gemma, Jon Dean's personal assistant inside QuietOS."
+
+            else -> null
+        }
+    }
+
     val personalCore: String = """
 Jon identity:
 - Jon Dean is the owner of DeanWay LLC and DeanWay Labs.
