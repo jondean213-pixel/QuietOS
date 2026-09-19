@@ -32,24 +32,14 @@ class LiteRtQwenModel : LocalModel {
             created.initialize()
 
             val warmupStarted = System.nanoTime()
-            created.createConversation(
-                ConversationConfig(
-                    maxOutputToken = 1,
-                    thinkingConfig = ThinkingConfig(enableThinking = false)
-                )
-            ).use { warmupConversation ->
-                withTimeout(120_000L) {
-                    warmupConversation.sendMessageAsync(".").collect { }
-                }
-            }
-            val warmupTimeMs = (System.nanoTime() - warmupStarted) / 1_000_000
-
             val createdConversation = created.createConversation(
                 ConversationConfig(
+                    prefillPrefaceOnInit = true,
                     maxOutputToken = 64,
                     thinkingConfig = ThinkingConfig(enableThinking = false)
                 )
             )
+            val warmupTimeMs = (System.nanoTime() - warmupStarted) / 1_000_000
             engine = created
             conversation = createdConversation
             state = ModelState.READY
