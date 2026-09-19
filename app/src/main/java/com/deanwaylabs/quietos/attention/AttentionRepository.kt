@@ -28,6 +28,10 @@ class AttentionRepository(context: Context) {
         prefs.edit().putString(KEY_RECORDS, array.toString()).apply()
     }
 
+    fun clear() {
+        prefs.edit().remove(KEY_RECORDS).apply()
+    }
+
     fun readAll(): List<AttentionRecord> {
         val raw = prefs.getString(KEY_RECORDS, null) ?: return emptyList()
         return try {

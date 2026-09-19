@@ -1008,3 +1008,25 @@ Next controlled experiment:
 - Record whether QuietOS cancelled the original.
 - This measures the fastest suppression possible to a normal Android app while preserving deterministic emergency/direct-request safety.
 - True pre-delivery interception remains an OS/platform-level capability, not a standard app capability.
+
+
+## 2026-09-19 - Run #75 physical interception PASS; operating Attention Mode batch
+
+Physical Motorola evidence supplied by Jon Dean:
+- Run #75 installed and Interception Test Mode was enabled.
+- QuietOS caught the tested notification quickly enough that it did not visibly establish itself in the Android notification bar.
+- This matches the user-visible interception behavior previously proven by GhostMode.
+- Therefore visible DIGEST/QUIET interception on this Motorola is a PHYSICAL PASS for Run #75.
+
+Important wording correction:
+- Android NotificationListenerService still receives the posted-notification callback rather than a privileged before-post hook.
+- However, immediate classification/cancellation is fast enough on this device to prevent the notification from visibly landing in normal use.
+- The prior registry wording that treated useful pre-bar interception as unavailable was too absolute and is superseded by this physical evidence.
+
+### Run #76 integration batch
+- Promote the user-facing toggle from "Interception Test Mode" to "QuietOS Attention Mode"; it remains user-controlled and is not silently enabled.
+- Preserve policy: NOW and SOON stay in Android's normal flow; DIGEST and QUIET are intercepted/cancelled when Attention Mode is ON.
+- Add a local Gemma digest bridge using at most five DIGEST records and bounded notification text so context remains controlled.
+- Add a one-tap Clear Attention Log control.
+- Keep raw notification storage local.
+- Build/test evidence for this batch is pending CI and physical Motorola verification.

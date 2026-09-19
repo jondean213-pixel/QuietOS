@@ -126,6 +126,18 @@ class MainActivity : AppCompatActivity() {
             text = "Refresh Attention Log"
             setOnClickListener { refreshAttentionLog() }
         }
+        val summarizeDigest = Button(this).apply {
+            text = "Gemma: Summarize Digest"
+            setOnClickListener { summarizeDigestWithGemma() }
+        }
+        val clearAttention = Button(this).apply {
+            text = "Clear Attention Log"
+            setOnClickListener {
+                attentionRepository.clear()
+                refreshAttentionLog()
+                transcript.append("\nQuietOS: attention log cleared.\n")
+            }
+        }
         attentionLog = TextView(this).apply {
             text = "No captured notifications yet."
             textSize = 14f
@@ -135,6 +147,8 @@ class MainActivity : AppCompatActivity() {
         column.addView(notificationAccess)
         column.addView(interceptionButton)
         column.addView(refreshAttention)
+        column.addView(summarizeDigest)
+        column.addView(clearAttention)
         column.addView(attentionLog)
 
         column.addView(
@@ -231,13 +245,57 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun summarizeDigestWithGemma() {
+        val digest = attentionRepository.readAll()
+            .filter { it.classification == com.deanwaylabs.quietos.attention.AttentionClass.DIGEST }
+            .take(5)
+
+        if (digest.isEmpty()) {
+            transcript.append("\nQuietOS: no DIGEST notifications are waiting.\n")
+            return
+        }
+
+        if (model.state != ModelState.READY) {
+            transcript.append("\nQuietOS: Gemma is not ready yet, so I kept the digest locally.\n")
+            return
+        }
+
+        val digestContext = digest.mapIndexed { index, record ->
+            val source = record.title.ifBlank { record.packageName }
+            "${index + 1}. ${source}: ${record.text.take(120)}"
+        }.joinToString("\n")
+
+        val prompt = """QuietOS collected these DIGEST notifications. Summarize only the useful information for Jon in a calm, concise way. Do not invent details. If several items are repetitive, combine them.
+
+$digestContext"""
+
+        transcript.append("\nQuietOS: sending ${digest.size} DIGEST items to Gemma for a local summary.\nGemma: ")
+        status.text = "Gemma status: summarizing digest..."
+        send.isEnabled = false
+
+        lifecycleScope.launch {
+            try {
+                val result = model.send(prompt)
+                transcript.append(result.text + "\n")
+                val m = result.metrics
+                transcript.append("[digest wiring: first ${m.timeToFirstChunkMs} ms | total ${m.totalTimeMs} ms | chunks ${m.chunkCount}]\n")
+                status.text = "Gemma READY | digest total ${m.totalTimeMs} ms"
+            } catch (t: Throwable) {
+                transcript.append("[DIGEST FAILED: ${t.javaClass.simpleName}: ${t.message ?: "no message"}]\n")
+                status.text = "Gemma digest FAILED: ${t.javaClass.simpleName}"
+            } finally {
+                send.isEnabled = model.state == ModelState.READY
+            }
+        }
+    }
+
     private fun updateInterceptionButton() {
         val enabled = getSharedPreferences("quietos_attention", MODE_PRIVATE)
             .getBoolean("interception_enabled", false)
         interceptionButton.text = if (enabled) {
-            "Interception Test Mode: ON"
+            "QuietOS Attention Mode: ON"
         } else {
-            "Interception Test Mode: OFF"
+            "QuietOS Attention Mode: OFF"
         }
     }
 
@@ -254,7 +312,7 @@ class MainActivity : AppCompatActivity() {
         attentionStatus.text = "Attention Engine: captured ${records.size} | NOW ${counts[com.deanwaylabs.quietos.attention.AttentionClass.NOW] ?: 0} | SOON ${counts[com.deanwaylabs.quietos.attention.AttentionClass.SOON] ?: 0} | DIGEST ${counts[com.deanwaylabs.quietos.attention.AttentionClass.DIGEST] ?: 0} | QUIET ${counts[com.deanwaylabs.quietos.attention.AttentionClass.QUIET] ?: 0} | cancelled $cancelled"
 
         attentionLog.text = records.take(5).joinToString("\n\n") { record ->
-            val action = if (record.originalCancelled) "Original cancelled after Android posted it" else "Original left in Android notification flow"
+            val action = if (record.originalCancelled) "QuietOS intercepted and cancelled the original" else "Original left in Android notification flow"
             "[${record.classification}] ${record.title.ifBlank { record.packageName }}\n${record.text.take(180)}\nWhy: ${record.reason}\nAction: $action"
         }
     }
