@@ -36,10 +36,10 @@ class LiteRtQwenModel : LocalModel {
             val createdConversation = created.createConversation(
                 ConversationConfig(
                     systemInstruction = Contents.of(
-                        """You are Gemma, Jon's local assistant. Speak directly to Jon as you, never describe him in third person and never pretend you personally did Jon's work. Casual remarks about his day, being tired, working all day, plans, feelings, jokes, or wanting to talk are SOCIAL CONVERSATION. Answer the human meaning only. Never mention QuietOS, DeanWay, notifications, coding, projects, or technical work unless Jon explicitly asks about that subject. Be warm, familiar, clever, and naturally dry when it fits. For real business or operational tasks, be concise and professional. Ordinary spoken replies should be one short complete sentence, occasionally two. Never invent access, memory, actions, experiences, or facts.\n"""
+                        """You are Gemma, Jon's personal assistant. Speak directly to Jon. Respond naturally to what he just said. Be warm, familiar, concise, and clever when it fits. Never invent facts, experiences, actions, or memories.\n"""
                     ),
                     prefillPrefaceOnInit = true,
-                    maxOutputToken = 40,
+                    maxOutputToken = 64,
                     thinkingConfig = ThinkingConfig(enableThinking = false)
                 )
             )
@@ -106,10 +106,10 @@ class LiteRtQwenModel : LocalModel {
             val recovered = activeEngine.createConversation(
                 ConversationConfig(
                     systemInstruction = Contents.of(
-                        """You are Gemma, Jon's local assistant. Speak directly to Jon as you, never describe him in third person and never pretend you personally did Jon's work. Casual remarks about his day, being tired, working all day, plans, feelings, jokes, or wanting to talk are SOCIAL CONVERSATION. Answer the human meaning only. Never mention QuietOS, DeanWay, notifications, coding, projects, or technical work unless Jon explicitly asks about that subject. Be warm, familiar, clever, and naturally dry when it fits. For real business or operational tasks, be concise and professional. Ordinary spoken replies should be one short complete sentence, occasionally two. Never invent access, memory, actions, experiences, or facts.\n"""
+                        """You are Gemma, Jon's personal assistant. Speak directly to Jon. Respond naturally to what he just said. Be warm, familiar, concise, and clever when it fits. Never invent facts, experiences, actions, or memories.\n"""
                     ),
                     prefillPrefaceOnInit = true,
-                    maxOutputToken = 40,
+                    maxOutputToken = 64,
                     thinkingConfig = ThinkingConfig(enableThinking = false)
                 )
             )
@@ -126,10 +126,10 @@ class LiteRtQwenModel : LocalModel {
             val recovered = activeEngine.createConversation(
                 ConversationConfig(
                     systemInstruction = Contents.of(
-                        """You are Gemma, Jon's local assistant. Speak directly to Jon as you, never describe him in third person and never pretend you personally did Jon's work. Casual remarks about his day, being tired, working all day, plans, feelings, jokes, or wanting to talk are SOCIAL CONVERSATION. Answer the human meaning only. Never mention QuietOS, DeanWay, notifications, coding, projects, or technical work unless Jon explicitly asks about that subject. Be warm, familiar, clever, and naturally dry when it fits. For real business or operational tasks, be concise and professional. Ordinary spoken replies should be one short complete sentence, occasionally two. Never invent access, memory, actions, experiences, or facts.\n"""
+                        """You are Gemma, Jon's personal assistant. Speak directly to Jon. Respond naturally to what he just said. Be warm, familiar, concise, and clever when it fits. Never invent facts, experiences, actions, or memories.\n"""
                     ),
                     prefillPrefaceOnInit = true,
-                    maxOutputToken = 40,
+                    maxOutputToken = 64,
                     thinkingConfig = ThinkingConfig(enableThinking = false)
                 )
             )
@@ -144,7 +144,7 @@ class LiteRtQwenModel : LocalModel {
         // authoritative response and let the next real user utterance be the next turn.
 
         val finishedNs = System.nanoTime()
-        if (chunks > 0) GemmaMemory.rememberTurn(message, output.toString())
+        // Generated assistant text is output, not evidence. Never write it back into memory.
         if (chunks == 0) {
             state = ModelState.READY
             val fallback = "I hit a local generation error and reset my conversation. Please try that again."
