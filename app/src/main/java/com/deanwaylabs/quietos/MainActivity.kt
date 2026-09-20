@@ -28,6 +28,7 @@ import com.deanwaylabs.quietos.ai.LiteRtQwenModel
 import com.deanwaylabs.quietos.ai.ModelState
 import com.deanwaylabs.quietos.attention.AttentionRepository
 import com.deanwaylabs.quietos.voice.HandsFreeListeningController
+import com.deanwaylabs.quietos.voice.GemmaWakeWordSpotter
 import com.deanwaylabs.quietos.voice.VoiceCommand
 import com.deanwaylabs.quietos.voice.VoiceCommandRouter
 import com.deanwaylabs.quietos.voice.VoiceTextNormalizer
@@ -59,6 +60,7 @@ class MainActivity : AppCompatActivity() {
     private var handsFreeWakeArmed = true
     private var wakeSessionConsumed = false
     private var wakeDetectedInSession = false
+    private var wakeWordSpotter: GemmaWakeWordSpotter? = null
     private lateinit var handsFreeStatus: TextView
 
     private val voiceLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -311,79 +313,101 @@ class MainActivity : AppCompatActivity() {
         if (handsFreeEnabled) return
         handsFreeEnabled = true
         handsFreeController.enable()
-        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).also { recognizer ->
-            recognizer.setRecognitionListener(object : RecognitionListener {
+        ensureCommandRecognizer()
+
+        if (wakeWordSpotter == null) {
+            wakeWordSpotter = GemmaWakeWordSpotter(
+                context = this,
+                onWake = {
+                    if (!handsFreeEnabled) return@GemmaWakeWordSpotter
+                    transcript.append("\nQuietOS wake: Gemma\n")
+                    handsFreeStatus.text = "QuietOS: awake, listening for request..."
+                    wakeWordSpotter?.stop()
+                    startCommandRecognition()
+                },
+                onError = { message ->
+                    handsFreeStatus.text = "QuietOS: wake detector error"
+                    transcript.append("\nQuietOS wake detector error: $message\n")
+                }
+            )
+        }
+
+        handsFreeStatus.text = "QuietOS: idle, say \"Gemma\""
+        transcript.append("\nQuietOS: local Gemma wake detector armed.\n")
+        wakeWordSpotter?.start()
+    }
+
+    private fun ensureCommandRecognizer() {
+        if (speechRecognizer != null) return
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
+            setRecognitionListener(object : RecognitionListener {
                 override fun onReadyForSpeech(params: Bundle?) {
                     recognitionSessionActive = true
                     handsFreeController.listeningStarted()
-                    handsFreeStatus.text = if (awaitingGemmaCommand) "QuietOS: listening for request..." else "QuietOS: listening for \"Gemma\"..."
+                    handsFreeStatus.text = "QuietOS: awake, listening for request..."
                 }
                 override fun onBeginningOfSpeech() = Unit
                 override fun onRmsChanged(rmsdB: Float) = Unit
                 override fun onBufferReceived(buffer: ByteArray?) = Unit
                 override fun onEndOfSpeech() {
-                    recognitionSessionActive = false
                     handsFreeStatus.text = "QuietOS: processing..."
                 }
                 override fun onError(error: Int) {
                     recognitionSessionActive = false
                     if (!handsFreeEnabled) return
-                    handsFreeController.failed()
-                    if (awaitingGemmaCommand) {
-                        awaitingGemmaCommand = false
-                        handsFreeStatus.text = "QuietOS: request capture ended"
-                    } else {
-                        handsFreeStatus.text = "QuietOS: wake capture ended"
-                    }
+                    transcript.append("\nQuietOS: command recognition ended without a usable request (error $error).\n")
+                    returnToWakeIdle()
                 }
                 override fun onResults(results: Bundle?) {
                     recognitionSessionActive = false
                     if (!handsFreeEnabled) return
                     handsFreeController.speechReceived()
-                    val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        .orEmpty().firstOrNull()?.trim().orEmpty()
-                    if (spoken.isNotEmpty()) handleHandsFreeSpeech(spoken)
-                    handsFreeController.readyForNextUtterance()
+                    val heard = results
+                        ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        ?.firstOrNull()
+                        ?.trim()
+                        .orEmpty()
+                    if (heard.isNotEmpty()) handleVoiceInput(heard)
+                    else transcript.append("\nQuietOS: no command was recognized.\n")
+                    returnToWakeIdle()
                 }
                 override fun onPartialResults(partialResults: Bundle?) = Unit
                 override fun onEvent(eventType: Int, params: Bundle?) = Unit
             })
         }
-        transcript.append("\nQuietOS: foreground wake capture armed. Say \"Gemma\".\n")
-        startRecognitionSession()
     }
 
-    private fun startRecognitionSession() {
-        if (!handsFreeEnabled || isFinishing || isDestroyed || recognitionSessionActive) return
+    private fun startCommandRecognition() {
+        if (!handsFreeEnabled || recognitionSessionActive) return
+        ensureCommandRecognizer()
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                putStringArrayListExtra(
+                    RecognizerIntent.EXTRA_BIASING_STRINGS,
+                    arrayListOf("Attention Mode", "QuietOS", "DeanWay", "DeanWay Labs", "DeanWay Travels")
+                )
+            }
+        }
         runCatching {
-            speechRecognizer?.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            })
+            recognitionSessionActive = true
+            speechRecognizer?.startListening(intent)
         }.onFailure {
-            handsFreeStatus.text = "QuietOS: recognizer unavailable"
+            recognitionSessionActive = false
+            transcript.append("\nQuietOS: command recognizer failed to start.\n")
+            returnToWakeIdle()
         }
     }
 
-    private fun handleHandsFreeSpeech(spoken: String) {
-        if (awaitingGemmaCommand) {
-            awaitingGemmaCommand = false
-            handsFreeStatus.text = "QuietOS: processing request..."
-            handleVoiceInput(spoken)
-            return
-        }
-        val wake = Regex("""(?i)\bgemma\b[\s,.:;!?-]*(.*)$""").find(spoken) ?: return
-        val request = wake.groupValues[1].trim()
-        if (request.isNotEmpty()) {
-            handsFreeStatus.text = "QuietOS: wake + request detected"
-            handleVoiceInput(request)
-        } else {
-            awaitingGemmaCommand = true
-            handsFreeStatus.text = "QuietOS: awake, say your request..."
-            transcript.append("\nQuietOS: Gemma wake detected. Listening for your request.\n")
-            handsFreeStatus.postDelayed({ startRecognitionSession() }, 250L)
-        }
+    private fun returnToWakeIdle() {
+        if (!handsFreeEnabled) return
+        handsFreeController.readyForNextUtterance()
+        handsFreeStatus.text = "QuietOS: idle, say \"Gemma\""
+        handsFreeStatus.postDelayed({
+            if (handsFreeEnabled && !recognitionSessionActive) wakeWordSpotter?.start()
+        }, 300L)
     }
 
     private fun launchVoiceInput() {
@@ -540,6 +564,8 @@ $digestContext"""
         speechRestartPending = false
         recognitionSessionActive = false
         handsFreeController.disable()
+        wakeWordSpotter?.release()
+        wakeWordSpotter = null
         speechRecognizer?.cancel()
         speechRecognizer?.destroy()
         speechRecognizer = null

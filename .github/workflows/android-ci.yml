@@ -16,6 +16,22 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Prepare local Gemma wake-word engine
+        run: |
+          mkdir -p app/libs app/src/main/assets
+          curl -L --fail --retry 3 -o app/libs/sherpa-onnx-1.13.8.aar https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/sherpa-onnx-1.13.8.aar
+          curl -L --fail --retry 3 -o /tmp/kws.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2
+          tar -xjf /tmp/kws.tar.bz2 -C /tmp
+          MODEL=sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01
+          mkdir -p app/src/main/assets/$MODEL
+          cp /tmp/$MODEL/encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx app/src/main/assets/$MODEL/encoder-epoch-12-avg-2-chunk-16-left-64.onnx
+          cp /tmp/$MODEL/decoder-epoch-12-avg-2-chunk-16-left-64.onnx app/src/main/assets/$MODEL/
+          cp /tmp/$MODEL/joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx app/src/main/assets/$MODEL/joiner-epoch-12-avg-2-chunk-16-left-64.onnx
+          cp /tmp/$MODEL/tokens.txt app/src/main/assets/$MODEL/
+          cp /tmp/$MODEL/bpe.model app/src/main/assets/$MODEL/
+          python -m pip install --quiet sherpa-onnx sentencepiece pypinyin
+          printf 'GEMMA\n' > /tmp/keywords_raw.txt
+          sherpa-onnx-cli text2token --tokens /tmp/$MODEL/tokens.txt --tokens-type bpe --bpe-model /tmp/$MODEL/bpe.model /tmp/keywords_raw.txt app/src/main/assets/$MODEL/keywords.txt
       - name: Unit tests
         run: gradle testDebugUnitTest
       - name: Debug APK
