@@ -1564,3 +1564,40 @@ Keeper decision:
 - Return to idle wake state across repeated requests: PHYSICAL PASS.
 - CI #133 is the current hands-free wake keeper baseline.
 - Do not redesign or replace the wake layer without a specific failing physical test. Future work must preserve this checkpoint and treat the local-model-not-ready observation separately.
+
+
+## 2026-09-20 - Gemma conversation/TTS stabilization through CI #146
+
+Status: #146 CI PASS / MOTOROLA CONVERSATION PASS / PROTECTED CONVERSATIONAL KEEPER / VOICE AND LATENCY OPEN
+
+- CI #135: Android TTS + conversation foundation. CI PASS; Motorola FAIL for robotic/repeating voice, high latency, and project drift.
+- CI #137: lifecycle guard + UK voice + prompt reduction. CI PASS; physical FAIL. First 13,955 ms; total 21,465 ms; role/project contamination remained.
+- CI #139: reduced prompt/token overhead and alternate installed voice. CI PASS; physical FAIL. First 4,588 ms; total 11,392 ms; en-gb-x-gba-local remained robotic and response quality failed.
+- CI #140: intermediate alternate local-English voice experiment; CI PASS, superseded before keeper status.
+- CI #141: tighter conversation prompt, maxOutputToken 40. CI PASS; wake/capture PASS; latency first 1,632 ms / total 4,592 ms; conversation and voice FAIL.
+- CI #142: restored #135 Android TTS code behavior (Locale.US/system default, rate/pitch 1.0) while retaining lifecycle guards. CI PASS. This did not establish that Android selected the exact earlier physical voice; later testing still sounded robotic.
+- CI #143: lightweight adaptive-memory retrieval foundation. CI PASS. Durable memory remained RAM-only and incomplete as persistence.
+- CI #144: memory-context grounding. CI PASS; artifact 10613997426; SHA-256 5f921fa4f85d21bb4a7d754ceededacc8a9e6d1fc821c7f6bc14a9f5f9f0dbab. Physical wake/capture PASS and speed acceptable, but conversation FAIL. Assistant hallucinations were being recycled through recent-turn memory.
+- Commit 074da34493de240ec4cd8b0a641b444bb6080070 (#145 increment): stopped generated assistant output from becoming memory evidence, simplified conversation prompt, raised maxOutputToken to 64.
+- Commit 676c61d4cf3a1cca56386e53f4df99bd2450259f (#146): removed recent-turn replay and made adaptive retrieval durable/user-grounded only. CI #146 run 35541505600 SUCCESS. Artifact 10615111043, 32,634,685 bytes, SHA-256 08f5ae991b4dd13d7499f3af9e57a124a6cbddc2acdf02ae31a082fa12922ae3.
+
+Motorola #146 milestone:
+- Wake PASS.
+- Speech capture PASS.
+- Conversational relevance PASS.
+- Direct second-person perspective PASS.
+- No DeanWay/project hallucination in the physical test.
+- Conversational tone PASS.
+- Latency OPEN: first 3,336 ms; total 9,593 ms.
+- Android stock/system TTS OPEN/FAIL: still robotic.
+
+Keeper boundary:
+CI #146 is the protected conversational baseline. Preserve the passing prompt/memory correction, #133 local wake architecture, normalization, and role-alternation repair while addressing voice/latency. Adaptive durable memory remains a foundation, not finished persistence.
+
+Tooling record:
+Several assistant-side edit scripts failed before repository writes (ReferenceError: System is not defined; apostrophe-related JavaScript SyntaxError; first adaptive-memory script missing-parenthesis SyntaxError; pre-#145 missing-parenthesis SyntaxError). These are tooling/script failures, not QuietOS app or CI failures.
+
+Next voice direction:
+Jon Dean approved holding interface work long enough to pursue a natural local female neural voice. Kokoro through the existing sherpa-onnx stack is the first candidate; Piper/VITS remains a lighter fallback if physical evidence requires it. Android stock TTS is not accepted as the final Gemma voice. Termux may be used as a Motorola monitoring instrument, not as a QuietOS product dependency.
+
+Physical voice gate: naturalness, synthesis delay, RAM footprint, memory pressure/reclaim behavior, CPU load, heat, and post-speech recovery. The planned interface retains its RAM budget; the voice layer must fit around that protected headroom.
