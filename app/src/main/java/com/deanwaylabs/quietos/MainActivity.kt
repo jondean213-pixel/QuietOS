@@ -11,6 +11,8 @@ import android.provider.Settings
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
@@ -37,6 +39,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
     private val model = LiteRtQwenModel()
@@ -62,6 +65,8 @@ class MainActivity : AppCompatActivity() {
     private var wakeDetectedInSession = false
     private var wakeWordSpotter: GemmaWakeWordSpotter? = null
     private lateinit var handsFreeStatus: TextView
+    private var textToSpeech: TextToSpeech? = null
+    private var ttsReady = false
 
     private val voiceLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode != Activity.RESULT_OK) return@registerForActivityResult
@@ -91,6 +96,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         title = "QuietOS Alpha 0.1"
         setContentView(buildUi())
+        initializeTextToSpeech()
         lifecycleScope.launch { autoLoadExistingModel() }
         startHandsFreeWithPermission()
     }
@@ -266,6 +272,46 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun initializeTextToSpeech() {
+        textToSpeech = TextToSpeech(this) { statusCode ->
+            if (statusCode == TextToSpeech.SUCCESS) {
+                val engine = textToSpeech ?: return@TextToSpeech
+                val languageResult = engine.setLanguage(Locale.US)
+                ttsReady = languageResult != TextToSpeech.LANG_MISSING_DATA &&
+                    languageResult != TextToSpeech.LANG_NOT_SUPPORTED
+                engine.setSpeechRate(1.0f)
+                engine.setPitch(1.0f)
+                engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {
+                        runOnUiThread {
+                            wakeWordSpotter?.stop()
+                            handsFreeStatus.text = "Gemma: speaking..."
+                        }
+                    }
+
+                    override fun onDone(utteranceId: String?) {
+                        runOnUiThread { returnToWakeIdle() }
+                    }
+
+                    @Deprecated("Deprecated in Java")
+                    override fun onError(utteranceId: String?) {
+                        runOnUiThread { returnToWakeIdle() }
+                    }
+                })
+                transcript.append(if (ttsReady) "\nQuietOS: Gemma voice ready.\n" else "\nQuietOS: TTS voice data unavailable.\n")
+            } else {
+                ttsReady = false
+                transcript.append("\nQuietOS: TTS initialization failed.\n")
+            }
+        }
+    }
+
+    private fun speakGemma(text: String) {
+        if (!ttsReady || text.isBlank()) return
+        wakeWordSpotter?.stop()
+        textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "gemma-${System.nanoTime()}")
+    }
+
     private fun sendMessage() {
         val message = input.text.toString().trim()
         if (message.isEmpty()) return
@@ -284,6 +330,7 @@ class MainActivity : AppCompatActivity() {
                     status.text = "Gemma generation FAILED: empty response after ${elapsed} ms"
                 } else {
                     transcript.append(reply+"\n[response "+elapsed+" ms]\n")
+                    speakGemma(reply)
                     val m = result.metrics
                     transcript.append("[wiring: first chunk ${m.timeToFirstChunkMs} ms | after first ${m.generationAfterFirstChunkMs} ms | total ${m.totalTimeMs} ms | chunks ${m.chunkCount} | chars ${m.outputChars}]\n")
                     status.text = "Gemma READY | first ${m.timeToFirstChunkMs} ms | total ${m.totalTimeMs} ms"
@@ -507,6 +554,7 @@ $digestContext"""
             try {
                 val result = model.send(prompt)
                 transcript.append(result.text + "\n")
+                speakGemma(result.text)
                 val m = result.metrics
                 transcript.append("[digest wiring: first ${m.timeToFirstChunkMs} ms | total ${m.totalTimeMs} ms | chunks ${m.chunkCount}]\n")
                 status.text = "Gemma READY | digest total ${m.totalTimeMs} ms"
@@ -569,6 +617,10 @@ $digestContext"""
         speechRecognizer?.cancel()
         speechRecognizer?.destroy()
         speechRecognizer = null
+        textToSpeech?.stop()
+        textToSpeech?.shutdown()
+        textToSpeech = null
+        ttsReady = false
         model.close()
         super.onDestroy()
     }
