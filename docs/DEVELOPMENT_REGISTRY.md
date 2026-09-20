@@ -1442,3 +1442,20 @@ Evidence boundary:
 - This is foreground hands-free listening while MainActivity is active.
 - It is NOT evidence of persistent screen-off/background wake-word behavior.
 - Continuous SpeechRecognizer restart behavior, microphone lifecycle, wake detection reliability, two-stage wake/request behavior, one-utterance wake/request behavior, and regression against the protected voice baseline remain PHYSICALLY UNVERIFIED until Jon Dean's Motorola test completes.
+
+
+## 2026-09-20 - CI #119 Motorola physical result: wake path executes, recognizer churn FAIL
+
+Physical evidence from Jon Dean:
+- Hands-free commands are being recognized/routed sufficiently to execute the requested QuietOS actions.
+- The microphone/Android recognizer repeatedly drops out and re-enters listening, producing continuous microphone churn.
+- That churn causes stray/misinterpreted commands.
+
+Assessment:
+- Wake/listen -> existing QuietOS command execution path: PARTIAL PHYSICAL PASS (commands execute).
+- Continuous foreground listening stability: PHYSICAL FAIL.
+- CI #119 is therefore NOT the hands-free keeper build.
+
+Root-cause direction from live source:
+- Current implementation restarts Android SpeechRecognizer 350 ms after every result and every error. That rapid result/error/restart loop matches the observed microphone cycling and is the next fix target.
+- Protected VoiceTextNormalizer, VoiceCommandRouter, deterministic actions, Gemma fallback, and Attention Engine remain outside this fix scope.
