@@ -1280,3 +1280,31 @@ Assessment:
 
 Milestone decision:
 - Treat Run #91 identity/voice grounding as the current verified baseline.
+
+
+## 2026-09-20 - Run #92 recovery: Attention Mode voice-action verification
+
+Status: SOURCE IMPLEMENTED / CI PENDING / MOTOROLA PHYSICAL VERIFICATION PENDING
+
+Starting point:
+- Recovery branch is based on the exact physically verified Run #91 keeper.
+- Legitimate pre-regression hands-free work through historical Step 4 was recovered onto this branch.
+- Main remains untouched at Run #91.
+
+Controlled change:
+- Voice ATTENTION_ON and ATTENTION_OFF still call the existing setAttentionMode implementation used by the physical button.
+- After the state write, QuietOS now re-reads quietos_attention/interception_enabled and reports the actual persisted result.
+- A matching result is displayed as VERIFIED; a mismatch is displayed as FAILED with expected and actual state.
+
+Protected boundaries:
+- No Gemma/model code changed.
+- No Attention Engine classification/interception implementation changed.
+- No VoiceCommandRouter or VoiceTextNormalizer behavior changed.
+- No speech-recognition lifecycle behavior changed in this increment.
+- No sherpa/wake-model architecture was restored.
+
+Evidence boundary:
+- Source implementation is complete.
+- CI/build evidence is pending.
+- Physical command execution remains NOT VERIFIED until the Motorola demonstrates the requested state change.
+- Run #91 remains the rollback keeper.
