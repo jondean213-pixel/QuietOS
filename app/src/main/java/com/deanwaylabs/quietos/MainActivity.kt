@@ -279,18 +279,26 @@ class MainActivity : AppCompatActivity() {
                 val engine = textToSpeech ?: return@TextToSpeech
                 val ukLocale = Locale.UK
                 val languageResult = engine.setLanguage(ukLocale)
-                val preferredVoice = engine.voices
+                val installedEnglishVoices = engine.voices
                     ?.filter { voice ->
                         voice.locale.language.equals("en", ignoreCase = true) &&
-                            voice.locale.country.equals("GB", ignoreCase = true) &&
                             !voice.isNetworkConnectionRequired
                     }
-                    ?.sortedWith(
-                        compareBy<android.speech.tts.Voice> { it.quality }
-                            .thenBy { it.latency }
-                    )
-                    ?.lastOrNull()
-                if (preferredVoice != null) engine.voice = preferredVoice
+                    .orEmpty()
+                val preferredVoice = installedEnglishVoices
+                    .filter { voice ->
+                        val name = voice.name.lowercase(Locale.ROOT)
+                        name.contains("female") || name.contains("woman") || name.contains("fem")
+                    }
+                    .maxByOrNull { voice -> voice.quality }
+                    ?: installedEnglishVoices
+                        .filter { voice -> voice.locale.country.equals("GB", ignoreCase = true) }
+                        .maxByOrNull { voice -> voice.quality }
+                    ?: installedEnglishVoices.maxByOrNull { voice -> voice.quality }
+                if (preferredVoice != null) {
+                    engine.voice = preferredVoice
+                    transcript.append("\nQuietOS: TTS voice selected: ${preferredVoice.name} (${preferredVoice.locale}).\n")
+                }
                 ttsReady = languageResult != TextToSpeech.LANG_MISSING_DATA &&
                     languageResult != TextToSpeech.LANG_NOT_SUPPORTED
                 engine.setSpeechRate(1.04f)
