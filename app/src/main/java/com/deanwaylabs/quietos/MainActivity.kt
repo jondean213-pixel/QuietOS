@@ -475,12 +475,12 @@ class MainActivity : AppCompatActivity() {
 
                 VoiceCommand.ATTENTION_ON -> {
                     setAttentionMode(true)
-                    transcript.append("QuietOS: Attention Mode turned ON by voice.\n")
+                    reportAttentionModeResult(expectedEnabled = true)
                 }
 
                 VoiceCommand.ATTENTION_OFF -> {
                     setAttentionMode(false)
-                    transcript.append("QuietOS: Attention Mode turned OFF by voice.\n")
+                    reportAttentionModeResult(expectedEnabled = false)
                 }
 
                 VoiceCommand.CLEAR_ATTENTION_LOG -> {
@@ -510,6 +510,18 @@ class MainActivity : AppCompatActivity() {
             .apply()
         updateInterceptionButton()
         refreshAttentionLog()
+    }
+
+    private fun reportAttentionModeResult(expectedEnabled: Boolean) {
+        val actualEnabled = getSharedPreferences("quietos_attention", MODE_PRIVATE)
+            .getBoolean("interception_enabled", false)
+        val expected = if (expectedEnabled) "ON" else "OFF"
+        val actual = if (actualEnabled) "ON" else "OFF"
+        if (actualEnabled == expectedEnabled) {
+            transcript.append("QuietOS: Attention Mode $actual — VERIFIED after voice command.\n")
+        } else {
+            transcript.append("QuietOS: Attention Mode command FAILED — expected $expected, actual $actual.\n")
+        }
     }
 
     private fun summarizeDigestWithGemma() {
