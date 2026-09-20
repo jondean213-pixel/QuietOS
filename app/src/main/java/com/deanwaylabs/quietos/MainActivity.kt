@@ -55,6 +55,7 @@ class MainActivity : AppCompatActivity() {
     private var handsFreeEnabled = false
     private var awaitingGemmaCommand = false
     private var speechRestartPending = false
+    private var recognitionSessionActive = false
     private lateinit var handsFreeStatus: TextView
 
     private val voiceLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -310,6 +311,7 @@ class MainActivity : AppCompatActivity() {
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).also { recognizer ->
             recognizer.setRecognitionListener(object : RecognitionListener {
                 override fun onReadyForSpeech(params: Bundle?) {
+                    recognitionSessionActive = true
                     handsFreeController.listeningStarted()
                     handsFreeStatus.text = if (awaitingGemmaCommand) "Hands-free: listening for request..." else "Hands-free: listening for \"Gemma\"..."
                 }
@@ -317,9 +319,11 @@ class MainActivity : AppCompatActivity() {
                 override fun onRmsChanged(rmsdB: Float) = Unit
                 override fun onBufferReceived(buffer: ByteArray?) = Unit
                 override fun onEndOfSpeech() {
+                    recognitionSessionActive = false
                     handsFreeStatus.text = "Hands-free: processing..."
                 }
                 override fun onError(error: Int) {
+                    recognitionSessionActive = false
                     if (!handsFreeEnabled) return
                     handsFreeController.failed()
                     when (error) {
@@ -339,6 +343,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 override fun onResults(results: Bundle?) {
+                    recognitionSessionActive = false
                     if (!handsFreeEnabled) return
                     handsFreeController.speechReceived()
                     val candidates = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty()
@@ -361,6 +366,7 @@ class MainActivity : AppCompatActivity() {
         handsFreeStatus.postDelayed({
             speechRestartPending = false
             if (!handsFreeEnabled || isFinishing || isDestroyed) return@postDelayed
+            if (recognitionSessionActive) return@postDelayed
             runCatching {
                 speechRecognizer?.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -551,6 +557,7 @@ $digestContext"""
     override fun onDestroy() {
         handsFreeEnabled = false
         speechRestartPending = false
+        recognitionSessionActive = false
         handsFreeController.disable()
         speechRecognizer?.cancel()
         speechRecognizer?.destroy()
