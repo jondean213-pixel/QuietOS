@@ -1308,3 +1308,26 @@ Evidence boundary:
 - CI/build evidence is pending.
 - Physical command execution remains NOT VERIFIED until the Motorola demonstrates the requested state change.
 - Run #91 remains the rollback keeper.
+
+
+## 2026-09-20 - Run #92 recovery: remaining voice-action evidence wiring
+
+Status: SOURCE IMPLEMENTED / CI PENDING / MOTOROLA PHYSICAL VERIFICATION PENDING
+
+Controlled change:
+- CLEAR_ATTENTION_LOG now re-reads the repository after clear and reports VERIFIED only when zero records remain; otherwise it reports FAILED with the remaining count.
+- REFRESH_ATTENTION refreshes the existing UI and reports the current stored-record count.
+- ATTENTION_STATUS now reports actual persisted Attention Mode state plus current NOW/SOON/DIGEST/QUIET counts.
+- Existing action implementations remain authoritative; this increment adds observable readback evidence rather than a second control path.
+
+Protected boundaries:
+- No Gemma/model changes.
+- No Attention Engine classification/interception changes.
+- No VoiceCommandRouter or VoiceTextNormalizer changes.
+- No speech-recognizer lifecycle changes.
+- Run #91 remains the rollback keeper.
+
+Evidence boundary:
+- Source implemented in commit 8440d86792899b79e326da54eae5b7769e350cb4.
+- CI/build: PENDING.
+- Motorola physical action verification: PENDING.
