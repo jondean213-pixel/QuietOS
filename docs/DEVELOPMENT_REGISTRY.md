@@ -1528,3 +1528,39 @@ Assessment:
 
 Protected behavior:
 - Keep the existing proven Talk to Gemma request capture, VoiceTextNormalizer, VoiceCommandRouter, deterministic actions, Attention Engine, emergency bypass, and Gemma integration unchanged while replacing only the wake layer.
+
+
+## 2026-09-20 - CI #133 local Gemma wake architecture restored and PHYSICAL PASS
+
+Status: CI PASS / MOTOROLA PHYSICAL PASS / HANDS-FREE WAKE KEEPER
+
+Forensic recovery:
+- Jon Dean identified CI/APK #103 as the checkpoint immediately before the earlier wake-word work.
+- Git history then exposed the surviving Run #104-#109 sherpa-onnx development line that had later disappeared from main.
+- #104 through #108 were failed integration increments. #109 (commit 599b0e6c57c166a54a12d0f40cd226697c8a7041) completed CI successfully.
+- That recovered architecture uses a local sherpa-onnx KeywordSpotter with AudioRecord at 16 kHz mono PCM16 for idle wake detection. Android SpeechRecognizer is invoked only after the local detector hears the keyword Gemma.
+- No prior physical #109 result was located in repository evidence, so #109 itself is recorded as CI-proven only.
+
+Restoration:
+- Commit 21149d94b9e414e31c3e11038679e528db910874 restored the Run #109 local wake architecture into current main while preserving later VoiceTextNormalizer, VoiceCommandRouter, deterministic memory/actions, Attention Engine, and Gemma conversation repairs.
+- CI #133, run ID 35527336823, completed SUCCESS.
+- Artifact: QuietOS-alpha-debug, artifact ID 10609843724, archive size 32,627,060 bytes, SHA-256 e5a57988effbedfd0acedadf94b2b9603005b87a88d6c43bb4f891d11ca0c040.
+
+Motorola physical evidence supplied by Jon Dean after installing #133:
+- QuietOS remained idle with the local wake detector armed and woke on spoken Gemma without tapping Talk to Gemma.
+- After wake, spoken requests were captured and routed through the existing QuietOS pipeline.
+- "what is quiet OS" was corrected to "what is QuietOS" and returned the grounded deterministic QuietOS description.
+- "who is John Dean" was corrected to "who is Jon Dean" and returned the grounded deterministic Jon Dean identity.
+- "what is Dean way" was corrected to "what is DeanWay" and returned the grounded DeanWay business description.
+- Multiple wake cycles are visible in the physical screenshots, demonstrating return to idle wake listening after command handling.
+- Jon Dean reported: "Works absolutely perfect."
+
+Separate observation:
+- One utterance transcribed as "what is the way" fell through to the local model and produced IllegalStateException: Local model conversation is not ready. This is a separate model-readiness/fallback issue caused by a misrecognized request and is not a wake-word failure. It must not be fixed by changing the now-passing wake architecture.
+
+Keeper decision:
+- Local Gemma wake detection: PHYSICAL PASS.
+- Wake -> command capture -> normalization -> deterministic routing: PHYSICAL PASS.
+- Return to idle wake state across repeated requests: PHYSICAL PASS.
+- CI #133 is the current hands-free wake keeper baseline.
+- Do not redesign or replace the wake layer without a specific failing physical test. Future work must preserve this checkpoint and treat the local-model-not-ready observation separately.
