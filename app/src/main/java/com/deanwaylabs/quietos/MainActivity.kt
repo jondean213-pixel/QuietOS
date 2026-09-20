@@ -486,13 +486,23 @@ class MainActivity : AppCompatActivity() {
                 VoiceCommand.CLEAR_ATTENTION_LOG -> {
                     attentionRepository.clear()
                     refreshAttentionLog()
-                    transcript.append("QuietOS: attention log cleared by voice.\n")
+                    val remaining = attentionRepository.readAll().size
+                    if (remaining == 0) {
+                        transcript.append("QuietOS: attention log clear — VERIFIED after voice command.\n")
+                    } else {
+                        transcript.append("QuietOS: attention log clear FAILED — $remaining record(s) remain.\n")
+                    }
                 }
 
-                VoiceCommand.REFRESH_ATTENTION,
+                VoiceCommand.REFRESH_ATTENTION -> {
+                    refreshAttentionLog()
+                    val count = attentionRepository.readAll().size
+                    transcript.append("QuietOS: attention refresh — VERIFIED; $count record(s) currently stored.\n")
+                }
+
                 VoiceCommand.ATTENTION_STATUS -> {
                     refreshAttentionLog()
-                    transcript.append("QuietOS: attention status refreshed by voice.\n")
+                    reportAttentionStatus()
                 }
 
                 VoiceCommand.CONVERSATION -> {
@@ -522,6 +532,21 @@ class MainActivity : AppCompatActivity() {
         } else {
             transcript.append("QuietOS: Attention Mode command FAILED — expected $expected, actual $actual.\n")
         }
+    }
+
+    private fun reportAttentionStatus() {
+        val records = attentionRepository.readAll()
+        val counts = records.groupingBy { it.classification }.eachCount()
+        val modeEnabled = getSharedPreferences("quietos_attention", MODE_PRIVATE)
+            .getBoolean("interception_enabled", false)
+        val mode = if (modeEnabled) "ON" else "OFF"
+        transcript.append(
+            "QuietOS: Attention Mode $mode; captured ${records.size}; " +
+                "NOW ${counts[com.deanwaylabs.quietos.attention.AttentionClass.NOW] ?: 0}; " +
+                "SOON ${counts[com.deanwaylabs.quietos.attention.AttentionClass.SOON] ?: 0}; " +
+                "DIGEST ${counts[com.deanwaylabs.quietos.attention.AttentionClass.DIGEST] ?: 0}; " +
+                "QUIET ${counts[com.deanwaylabs.quietos.attention.AttentionClass.QUIET] ?: 0}.\n"
+        )
     }
 
     private fun summarizeDigestWithGemma() {
