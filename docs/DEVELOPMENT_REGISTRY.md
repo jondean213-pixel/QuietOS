@@ -1417,3 +1417,28 @@ Keeper decision:
 - DeanWay voice normalization restoration: PHYSICAL PASS.
 - These are protected baselines for the next Run #92 hands-free increment.
 - Active next target remains: Gemma wake/listen -> capture -> VoiceTextNormalizer -> existing VoiceCommandRouter/deterministic handling or Gemma fallback -> QuietOS output -> ready state.
+
+
+## 2026-09-20 - Run #92 foreground hands-free wake path CI PASS
+
+Status: SOURCE IMPLEMENTED / CI PASS / MOTOROLA PHYSICAL VERIFICATION IN PROGRESS
+
+Implementation:
+- Added RECORD_AUDIO permission for direct speech recognition.
+- MainActivity now creates Android SpeechRecognizer for foreground hands-free listening.
+- Run #92 HandsFreeListeningController is connected to READY/LISTENING/PROCESSING/ERROR lifecycle state.
+- Supports two wake forms: "Gemma" followed by the next utterance, and "Gemma, <request>" in one utterance.
+- Captured requests feed the existing protected handleVoiceInput path, therefore VoiceTextNormalizer still runs before VoiceCommandRouter and Gemma fallback.
+- Existing Talk to Gemma path remains only as a fallback/debug control.
+- Attention Engine, deterministic router behavior, Gemma model adapter, and verified normalization mappings were not redesigned by this increment.
+
+CI evidence:
+- GitHub Actions Run #119, run ID 35520163452, completed SUCCESS.
+- Head commit: 5c019079b0fc7f810d36901cf02385f14878b974.
+- Artifact: QuietOS-alpha-debug, artifact ID 10607214752.
+- Artifact SHA-256: 497ade520449609e5d866a092401c8b92f49d432164f1f84c50b944d932aaa84.
+
+Evidence boundary:
+- This is foreground hands-free listening while MainActivity is active.
+- It is NOT evidence of persistent screen-off/background wake-word behavior.
+- Continuous SpeechRecognizer restart behavior, microphone lifecycle, wake detection reliability, two-stage wake/request behavior, one-utterance wake/request behavior, and regression against the protected voice baseline remain PHYSICALLY UNVERIFIED until Jon Dean's Motorola test completes.
