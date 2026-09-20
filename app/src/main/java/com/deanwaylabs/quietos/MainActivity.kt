@@ -316,116 +316,73 @@ class MainActivity : AppCompatActivity() {
                 override fun onReadyForSpeech(params: Bundle?) {
                     recognitionSessionActive = true
                     handsFreeController.listeningStarted()
-                    handsFreeStatus.text = if (awaitingGemmaCommand) "Hands-free: listening for request..." else "Hands-free: listening for \"Gemma\"..."
+                    handsFreeStatus.text = if (awaitingGemmaCommand) "QuietOS: listening for request..." else "QuietOS: listening for \"Gemma\"..."
                 }
-                override fun onBeginningOfSpeech() { wakeDetectedInSession = false }
+                override fun onBeginningOfSpeech() = Unit
                 override fun onRmsChanged(rmsdB: Float) = Unit
                 override fun onBufferReceived(buffer: ByteArray?) = Unit
                 override fun onEndOfSpeech() {
                     recognitionSessionActive = false
-                    handsFreeStatus.text = "Hands-free: processing..."
+                    handsFreeStatus.text = "QuietOS: processing..."
                 }
                 override fun onError(error: Int) {
                     recognitionSessionActive = false
                     if (!handsFreeEnabled) return
                     handsFreeController.failed()
-                    if (!awaitingGemmaCommand) {
-                        wakeSessionConsumed = true
-                        handsFreeWakeArmed = false
-                        handsFreeStatus.text = "QuietOS: wake listener idle"
-                        return
-                    }
-                    when (error) {
-                        SpeechRecognizer.ERROR_NO_MATCH,
-                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
-                            handsFreeStatus.text = "Hands-free: listening for \"Gemma\"..."
-                            restartHandsFreeListening(1200)
-                        }
-                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> {
-                            handsFreeStatus.text = "Hands-free: microphone settling..."
-                            restartHandsFreeListening(1800)
-                        }
-                        else -> {
-                            handsFreeStatus.text = "Hands-free: retrying..."
-                            restartHandsFreeListening(1500)
-                        }
+                    if (awaitingGemmaCommand) {
+                        awaitingGemmaCommand = false
+                        handsFreeStatus.text = "QuietOS: request capture ended"
+                    } else {
+                        handsFreeStatus.text = "QuietOS: wake capture ended"
                     }
                 }
                 override fun onResults(results: Bundle?) {
                     recognitionSessionActive = false
                     if (!handsFreeEnabled) return
                     handsFreeController.speechReceived()
-                    val candidates = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty()
-                    val spoken = candidates.firstOrNull()?.trim().orEmpty()
+                    val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        .orEmpty().firstOrNull()?.trim().orEmpty()
                     if (spoken.isNotEmpty()) handleHandsFreeSpeech(spoken)
                     handsFreeController.readyForNextUtterance()
-                    if (awaitingGemmaCommand) restartHandsFreeListening(250) else {
-                        handsFreeWakeArmed = false
-                        wakeSessionConsumed = true
-                        handsFreeStatus.text = "Hands-free: wake session complete"
-                    }
                 }
                 override fun onPartialResults(partialResults: Bundle?) = Unit
                 override fun onEvent(eventType: Int, params: Bundle?) = Unit
             })
         }
-        transcript.append("\nQuietOS: hands-free foreground listening enabled. Say \"Gemma\" to wake me.\n")
-        wakeSessionConsumed = false
-        handsFreeWakeArmed = true
-        wakeDetectedInSession = false
-        restartHandsFreeListening(0)
+        transcript.append("\nQuietOS: foreground wake capture armed. Say \"Gemma\".\n")
+        startRecognitionSession()
     }
 
-    private fun restartHandsFreeListening(delayMs: Long = 900L) {
-        if (!handsFreeEnabled || isFinishing || isDestroyed || speechRestartPending) return
-        speechRestartPending = true
-        handsFreeStatus.postDelayed({
-            speechRestartPending = false
-            if (!handsFreeEnabled || isFinishing || isDestroyed) return@postDelayed
-            if (wakeSessionConsumed && !awaitingGemmaCommand) return@postDelayed
-            if (!handsFreeWakeArmed && !awaitingGemmaCommand) return@postDelayed
-            if (recognitionSessionActive) return@postDelayed
-            runCatching {
-                speechRecognizer?.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1400L)
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 900L)
-                })
-            }.onFailure {
-                handsFreeStatus.text = "Hands-free: microphone retry pending..."
-                restartHandsFreeListening(1800)
-            }
-        }, delayMs)
+    private fun startRecognitionSession() {
+        if (!handsFreeEnabled || isFinishing || isDestroyed || recognitionSessionActive) return
+        runCatching {
+            speechRecognizer?.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            })
+        }.onFailure {
+            handsFreeStatus.text = "QuietOS: recognizer unavailable"
+        }
     }
 
     private fun handleHandsFreeSpeech(spoken: String) {
-        val wake = Regex("""(?i)\bgemma\b[\s,.:;!?-]*(.*)$""").find(spoken)
-        when {
-            awaitingGemmaCommand -> {
-                awaitingGemmaCommand = false
-                handsFreeStatus.text = "Hands-free: processing request..."
-                handleVoiceInput(spoken)
-            }
-            wake != null -> {
-                wakeDetectedInSession = true
-                val request = wake.groupValues[1].trim()
-                if (request.isEmpty()) {
-                    awaitingGemmaCommand = true
-                    handsFreeWakeArmed = true
-                    handsFreeStatus.text = "Hands-free: awake, say your request..."
-                    transcript.append("\nQuietOS: Gemma wake detected. Listening for your request.\n")
-                } else {
-                    handsFreeWakeArmed = false
-                    handsFreeStatus.text = "Hands-free: wake + request detected"
-                    handleVoiceInput(request)
-                }
-            }
-            else -> {
-                handsFreeWakeArmed = false
-                handsFreeStatus.text = "Hands-free: wake session complete"
-            }
+        if (awaitingGemmaCommand) {
+            awaitingGemmaCommand = false
+            handsFreeStatus.text = "QuietOS: processing request..."
+            handleVoiceInput(spoken)
+            return
+        }
+        val wake = Regex("""(?i)\bgemma\b[\s,.:;!?-]*(.*)$""").find(spoken) ?: return
+        val request = wake.groupValues[1].trim()
+        if (request.isNotEmpty()) {
+            handsFreeStatus.text = "QuietOS: wake + request detected"
+            handleVoiceInput(request)
+        } else {
+            awaitingGemmaCommand = true
+            handsFreeStatus.text = "QuietOS: awake, say your request..."
+            transcript.append("\nQuietOS: Gemma wake detected. Listening for your request.\n")
+            handsFreeStatus.postDelayed({ startRecognitionSession() }, 250L)
         }
     }
 
