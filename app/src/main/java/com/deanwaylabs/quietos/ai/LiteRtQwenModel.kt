@@ -206,14 +206,11 @@ Grounding rules:
             collectFrom(recovered, message)
         }
 
-        if (chunks > 0 && needsCompletion(output.toString())) {
-            val activeConversation = checkNotNull(conversation) { "Local model conversation is not ready." }
-            output.append(" ")
-            collectFrom(
-                activeConversation,
-                "Finish only the incomplete final sentence from your previous answer. Continue naturally from where you stopped, use one short clause or sentence, and do not repeat earlier text."
-            )
-        }
+        // Do not send an automatic second user turn on the same LiteRT conversation.
+        // LiteRT-LM owns the assistant turn produced by sendMessageAsync(); forcing a
+        // continuation here can leave the native conversation history with invalid
+        // user/assistant role ordering. Keep the first complete generation as the
+        // authoritative response and let the next real user utterance be the next turn.
 
         val finishedNs = System.nanoTime()
         if (chunks == 0) {
