@@ -1498,3 +1498,14 @@ Next controlled fix:
 - Protected normalization, deterministic routing, Attention Engine, and Gemma integration remain unchanged.
 
 Physical verification remains required; no keeper claim is made.
+
+
+## 2026-09-20 - Run #92 forensic rollback to stable voice capture baseline
+
+Physical result: CI #126 still produced continuous microphone/beep cycling. This confirms repeated direct SpeechRecognizer sessions are not an acceptable wake-word mechanism on the Motorola.
+
+Forensic comparison against commit 81f55765d819d7558ea4192eab900b9a74b6cbe8 found the known-good implementation used Android's RecognizerIntent only for explicit request capture and did not auto-start/re-arm a SpeechRecognizer in onCreate.
+
+Commit 1bfea3e61263187fe654e389c0b476d27b8c15c2 therefore disables automatic direct SpeechRecognizer startup and restores the stable explicit voice-capture behavior while preserving current normalization, routing, Gemma fixes, Attention Engine, and other newer work. Hands-free wake is marked pending a dedicated quiet wake detector rather than faked by repeated SpeechRecognizer sessions.
+
+Gate: CI must pass, then Motorola must verify the microphone/beep loop is gone and explicit Talk to Gemma capture still works. No hands-free keeper claim until a true quiet wake detector is implemented and physically verified.
