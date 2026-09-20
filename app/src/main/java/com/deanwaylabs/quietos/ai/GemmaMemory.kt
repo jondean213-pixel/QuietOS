@@ -8,6 +8,54 @@ package com.deanwaylabs.quietos.ai
  * behind a local store/retrieval layer.
  */
 object GemmaMemory {
+    private const val MAX_RECENT_TURNS = 4
+    private const val MAX_RETRIEVED_MEMORIES = 3
+    private val stopWords = setOf("the", "and", "that", "this", "with", "have", "has", "had", "for", "from", "your", "you", "are", "was", "were", "what", "when", "where", "who", "why", "can", "could", "would", "should", "about", "just", "into", "been", "being")
+    private val recentTurns = ArrayDeque<String>()
+    private val durableMemories = linkedMapOf<String, String>()
+
+    @Synchronized
+    fun rememberDurable(key: String, value: String) {
+        val cleanKey = normalize(key)
+        val cleanValue = value.trim().replace(Regex("\\s+"), " ")
+        if (cleanKey.isNotBlank() && cleanValue.isNotBlank()) durableMemories[cleanKey] = cleanValue.take(240)
+    }
+
+    @Synchronized
+    fun rememberTurn(userMessage: String, gemmaReply: String) {
+        val turn = "Jon: " + userMessage.trim().take(180) + "\nGemma: " + gemmaReply.trim().take(180)
+        recentTurns.addLast(turn)
+        while (recentTurns.size > MAX_RECENT_TURNS) recentTurns.removeFirst()
+    }
+
+    @Synchronized
+    fun relevantContext(message: String): String {
+        val queryTerms = terms(message)
+        val durable = durableMemories.values
+            .map { memory -> memory to overlapScore(queryTerms, terms(memory)) }
+            .filter { it.second > 0 }
+            .sortedByDescending { it.second }
+            .take(MAX_RETRIEVED_MEMORIES)
+            .map { it.first }
+        val recent = recentTurns.takeLast(2)
+        if (durable.isEmpty() && recent.isEmpty()) return ""
+        return buildString {
+            if (durable.isNotEmpty()) {
+                append("Relevant memory:\n")
+                durable.forEach { append("- ").append(it).append('\n') }
+            }
+            if (recent.isNotEmpty()) {
+                append("Recent conversation:\n")
+                recent.forEach { append(it).append('\n') }
+            }
+        }.trim()
+    }
+
+    private fun terms(text: String): Set<String> =
+        normalize(text).split(' ').filter { it.length >= 3 && it !in stopWords }.toSet()
+
+    private fun overlapScore(a: Set<String>, b: Set<String>): Int = a.intersect(b).size
+
     private fun normalize(message: String): String =
         message.trim().lowercase()
             .replace(Regex("[^a-z0-9' ]"), " ")
