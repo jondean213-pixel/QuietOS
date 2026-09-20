@@ -111,12 +111,6 @@ Grounding rules:
             }
         }
 
-        fun needsCompletion(text: String): Boolean {
-            val trimmed = text.trimEnd()
-            if (trimmed.isEmpty()) return false
-            return trimmed.last() !in listOf('.', '!', '?', '…', '”', '"', '\'', ')', ']', '}')
-        }
-
         val firstConversation = checkNotNull(conversation) { "Local model conversation is not ready." }
         try {
             collectFrom(firstConversation, message)
