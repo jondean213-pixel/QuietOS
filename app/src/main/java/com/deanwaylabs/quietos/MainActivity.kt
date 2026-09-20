@@ -57,6 +57,7 @@ class MainActivity : AppCompatActivity() {
     private var speechRestartPending = false
     private var recognitionSessionActive = false
     private var handsFreeWakeArmed = true
+    private var wakeSessionConsumed = false
     private lateinit var handsFreeStatus: TextView
 
     private val voiceLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -88,7 +89,7 @@ class MainActivity : AppCompatActivity() {
         title = "QuietOS Alpha 0.1"
         setContentView(buildUi())
         lifecycleScope.launch { autoLoadExistingModel() }
-        handsFreeStatus.text = "Hands-free wake: pending dedicated quiet wake detector"
+        startHandsFreeWithPermission()
     }
 
     private fun buildUi(): View {
@@ -327,6 +328,11 @@ class MainActivity : AppCompatActivity() {
                     recognitionSessionActive = false
                     if (!handsFreeEnabled) return
                     handsFreeController.failed()
+                    if (!awaitingGemmaCommand) {
+                        wakeSessionConsumed = true
+                        handsFreeStatus.text = "Hands-free: ready for quiet wake redesign"
+                        return
+                    }
                     when (error) {
                         SpeechRecognizer.ERROR_NO_MATCH,
                         SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
@@ -353,6 +359,7 @@ class MainActivity : AppCompatActivity() {
                     handsFreeController.readyForNextUtterance()
                     if (awaitingGemmaCommand) restartHandsFreeListening(250) else {
                         handsFreeWakeArmed = false
+                        wakeSessionConsumed = true
                         handsFreeStatus.text = "Hands-free: wake session complete"
                     }
                 }
@@ -370,6 +377,7 @@ class MainActivity : AppCompatActivity() {
         handsFreeStatus.postDelayed({
             speechRestartPending = false
             if (!handsFreeEnabled || isFinishing || isDestroyed) return@postDelayed
+            if (wakeSessionConsumed && !awaitingGemmaCommand) return@postDelayed
             if (!handsFreeWakeArmed && !awaitingGemmaCommand) return@postDelayed
             if (recognitionSessionActive) return@postDelayed
             runCatching {
