@@ -67,6 +67,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var handsFreeStatus: TextView
     private var textToSpeech: TextToSpeech? = null
     private var ttsReady = false
+    private var activeTtsUtteranceId: String? = null
 
     private val voiceLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode != Activity.RESULT_OK) return@registerForActivityResult
@@ -276,10 +277,23 @@ class MainActivity : AppCompatActivity() {
         textToSpeech = TextToSpeech(this) { statusCode ->
             if (statusCode == TextToSpeech.SUCCESS) {
                 val engine = textToSpeech ?: return@TextToSpeech
-                val languageResult = engine.setLanguage(Locale.US)
+                val ukLocale = Locale.UK
+                val languageResult = engine.setLanguage(ukLocale)
+                val preferredVoice = engine.voices
+                    ?.filter { voice ->
+                        voice.locale.language.equals("en", ignoreCase = true) &&
+                            voice.locale.country.equals("GB", ignoreCase = true) &&
+                            !voice.isNetworkConnectionRequired
+                    }
+                    ?.sortedWith(
+                        compareBy<android.speech.tts.Voice> { it.quality }
+                            .thenBy { it.latency }
+                    )
+                    ?.lastOrNull()
+                if (preferredVoice != null) engine.voice = preferredVoice
                 ttsReady = languageResult != TextToSpeech.LANG_MISSING_DATA &&
                     languageResult != TextToSpeech.LANG_NOT_SUPPORTED
-                engine.setSpeechRate(1.0f)
+                engine.setSpeechRate(1.04f)
                 engine.setPitch(1.0f)
                 engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) {
@@ -290,12 +304,22 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     override fun onDone(utteranceId: String?) {
-                        runOnUiThread { returnToWakeIdle() }
+                        runOnUiThread {
+                            if (utteranceId == activeTtsUtteranceId) {
+                                activeTtsUtteranceId = null
+                                returnToWakeIdle()
+                            }
+                        }
                     }
 
                     @Deprecated("Deprecated in Java")
                     override fun onError(utteranceId: String?) {
-                        runOnUiThread { returnToWakeIdle() }
+                        runOnUiThread {
+                            if (utteranceId == activeTtsUtteranceId) {
+                                activeTtsUtteranceId = null
+                                returnToWakeIdle()
+                            }
+                        }
                     }
                 })
                 transcript.append(if (ttsReady) "\nQuietOS: Gemma voice ready.\n" else "\nQuietOS: TTS voice data unavailable.\n")
@@ -309,7 +333,10 @@ class MainActivity : AppCompatActivity() {
     private fun speakGemma(text: String) {
         if (!ttsReady || text.isBlank()) return
         wakeWordSpotter?.stop()
-        textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "gemma-${System.nanoTime()}")
+        textToSpeech?.stop()
+        val utteranceId = "gemma-${System.nanoTime()}"
+        activeTtsUtteranceId = utteranceId
+        textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
     }
 
     private fun sendMessage() {
