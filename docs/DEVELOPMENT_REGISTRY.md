@@ -1373,3 +1373,19 @@ Active Run #92 target:
 "Gemma..." -> wake/listen -> capture speech -> normalize through VoiceTextNormalizer -> route through the existing VoiceCommandRouter or Gemma conversation fallback -> return to ready/listening state.
 
 The Run #92 Step 1 HandsFreeListeningController remains the CI-passing state foundation for this work. No active microphone or wake behavior is claimed at this checkpoint.
+
+
+## 2026-09-20 - Run #92 branch recovery and CI revalidation
+
+Status: MAIN FAST-FORWARD RESTORED / CI REVALIDATION REQUESTED
+
+Evidence:
+- main had moved back to Run #91 commit cae443df0ef972e9ca246082a7b7a5a3115bfcbd.
+- GitHub comparison proved Run #92 commit 76b6f0ba4e0210fd493b59ed538e8eeed0ff44c9 was six commits ahead and zero behind Run #91, so restoration was a clean fast-forward, not a force reset.
+- main was fast-forwarded back to 76b6f0ba4e0210fd493b59ed538e8eeed0ff44c9.
+- This documentation commit intentionally triggers Android CI again against the restored Run #92 tree.
+
+Protected boundary:
+- No application source is changed by this recovery record.
+- Run #91 remains the physical rollback baseline.
+- Run #92 hands-free state foundation remains the active development increment.
