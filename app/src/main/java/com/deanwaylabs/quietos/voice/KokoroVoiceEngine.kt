@@ -3,7 +3,6 @@ package com.deanwaylabs.quietos.voice
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
-import android.media.AudioManager
 import android.media.AudioTrack
 import com.k2fsa.sherpa.onnx.GenerationConfig
 import com.k2fsa.sherpa.onnx.OfflineTts
@@ -40,6 +39,7 @@ class KokoroVoiceEngine(private val context: Context) {
     private var tts: OfflineTts? = null
     private var track: AudioTrack? = null
     private var lastLoadMs: Long = 0
+    private var speakerCount: Int = 0
 
     fun isInstalled(): Boolean {
         val d = modelDir()
@@ -71,9 +71,13 @@ class KokoroVoiceEngine(private val context: Context) {
         )
         val started = System.nanoTime()
         tts = OfflineTts(config = config)
+        speakerCount = tts?.numSpeakers ?: 0
         lastLoadMs = (System.nanoTime() - started) / 1_000_000
         return lastLoadMs
     }
+
+    @Synchronized
+    fun numSpeakers(): Int = speakerCount
 
     @Synchronized
     fun speak(text: String, speakerId: Int = 0, speed: Float = 1.0f): Metrics {
@@ -156,6 +160,7 @@ class KokoroVoiceEngine(private val context: Context) {
         stopPlayback()
         tts?.release()
         tts = null
+        speakerCount = 0
     }
 
     private fun modelDir(): File = File(context.filesDir, "voices/kokoro")
