@@ -89,8 +89,14 @@ class LiteRtQwenModel : LocalModel {
         }
 
         val firstConversation = checkNotNull(conversation) { "Local model conversation is not ready." }
+        val memoryContext = GemmaMemory.relevantContext(message)
+        val groundedPrompt = if (memoryContext.isBlank()) {
+            message
+        } else {
+            memoryContext + "\nCurrent message:\n" + message
+        }
         try {
-            collectFrom(firstConversation, message)
+            collectFrom(firstConversation, groundedPrompt)
         } catch (t: Throwable) {
             val overflow = t.message?.contains("Input token ids are too long", ignoreCase = true) == true
             if (!overflow) throw t
@@ -111,7 +117,7 @@ class LiteRtQwenModel : LocalModel {
             output.clear()
             chunks = 0
             firstChunkNs = null
-            collectFrom(recovered, message)
+            collectFrom(recovered, groundedPrompt)
         }
 
         if (chunks == 0) {
@@ -138,6 +144,7 @@ class LiteRtQwenModel : LocalModel {
         // authoritative response and let the next real user utterance be the next turn.
 
         val finishedNs = System.nanoTime()
+        if (chunks > 0) GemmaMemory.rememberTurn(message, output.toString())
         if (chunks == 0) {
             state = ModelState.READY
             val fallback = "I hit a local generation error and reset my conversation. Please try that again."
