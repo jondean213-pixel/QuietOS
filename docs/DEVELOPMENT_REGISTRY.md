@@ -1509,3 +1509,22 @@ Forensic comparison against commit 81f55765d819d7558ea4192eab900b9a74b6cbe8 foun
 Commit 1bfea3e61263187fe654e389c0b476d27b8c15c2 therefore disables automatic direct SpeechRecognizer startup and restores the stable explicit voice-capture behavior while preserving current normalization, routing, Gemma fixes, Attention Engine, and other newer work. Hands-free wake is marked pending a dedicated quiet wake detector rather than faked by repeated SpeechRecognizer sessions.
 
 Gate: CI must pass, then Motorola must verify the microphone/beep loop is gone and explicit Talk to Gemma capture still works. No hands-free keeper claim until a true quiet wake detector is implemented and physically verified.
+
+
+## 2026-09-20 - CI #131 Motorola physical result: wake capture expires / FAIL
+
+Physical evidence from Jon Dean:
+- CI #131 installs and launches.
+- UI reports "QuietOS: foreground wake capture armed. Say \"Gemma\"."
+- The wake capture then ends without detecting the spoken wake word.
+- Saying "Gemma" does not wake QuietOS.
+- Voice input still works only through the Talk to Gemma fallback button.
+
+Assessment:
+- Continuous microphone/beep restart loop was removed.
+- Hands-free wake requirement: PHYSICAL FAIL.
+- CI #131 is NOT a keeper build.
+- Do not restore the repeated SpeechRecognizer restart loop. A session-based Android SpeechRecognizer either churns when repeatedly rearmed or expires when not rearmed, so it cannot serve as QuietOS's persistent wake layer on this Motorola.
+
+Protected behavior:
+- Keep the existing proven Talk to Gemma request capture, VoiceTextNormalizer, VoiceCommandRouter, deterministic actions, Attention Engine, emergency bypass, and Gemma integration unchanged while replacing only the wake layer.
