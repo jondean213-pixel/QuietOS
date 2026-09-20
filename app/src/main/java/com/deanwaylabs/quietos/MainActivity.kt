@@ -285,16 +285,23 @@ class MainActivity : AppCompatActivity() {
                             !voice.isNetworkConnectionRequired
                     }
                     .orEmpty()
+                // Physical test #139 selected en-gb-x-gba-local and sounded too robotic.
+                // Voice trial 2 deliberately moves away from that voice and prefers the
+                // highest-quality installed US English local voice. Keep wake/capture untouched.
                 val preferredVoice = installedEnglishVoices
                     .filter { voice ->
-                        val name = voice.name.lowercase(Locale.ROOT)
-                        name.contains("female") || name.contains("woman") || name.contains("fem")
+                        voice.locale.country.equals("US", ignoreCase = true) &&
+                            !voice.name.equals("en-gb-x-gba-local", ignoreCase = true)
                     }
-                    .maxByOrNull { voice -> voice.quality }
+                    .maxWithOrNull(
+                        compareBy<android.speech.tts.Voice> { it.quality }
+                            .thenByDescending { it.latency }
+                    )
                     ?: installedEnglishVoices
-                        .filter { voice -> voice.locale.country.equals("GB", ignoreCase = true) }
+                        .filterNot { voice ->
+                            voice.name.equals("en-gb-x-gba-local", ignoreCase = true)
+                        }
                         .maxByOrNull { voice -> voice.quality }
-                    ?: installedEnglishVoices.maxByOrNull { voice -> voice.quality }
                 if (preferredVoice != null) {
                     engine.voice = preferredVoice
                     transcript.append("\nQuietOS: TTS voice selected: ${preferredVoice.name} (${preferredVoice.locale}).\n")
