@@ -18,6 +18,18 @@ class VoiceTextNormalizerTest {
     @Test fun fixesDeanWayTravels() =
         assertEquals("tell me about DeanWay Travels", normalizer.normalize("tell me about Dean way travels"))
 
+    @Test fun fixesDeanWayTravelSingular() =
+        assertEquals("what is DeanWay Travels", normalizer.normalize("what is Dean way travel"))
+
+    @Test fun fixesGreenwayTravelSingular() =
+        assertEquals("what is DeanWay Travels", normalizer.normalize("what is Greenway travel"))
+
+    @Test fun fixesGreenWayTravelSingular() =
+        assertEquals("what is DeanWay Travels", normalizer.normalize("what is Green way travel"))
+
+    @Test fun fixesPlainGreenway() =
+        assertEquals("what is DeanWay", normalizer.normalize("what is Greenway"))
+
     @Test fun fixesQuietOS() =
         assertEquals("what is QuietOS", normalizer.normalize("what is Quiet OS"))
 
