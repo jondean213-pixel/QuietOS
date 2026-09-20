@@ -54,6 +54,7 @@ class MainActivity : AppCompatActivity() {
     private var speechRecognizer: SpeechRecognizer? = null
     private var handsFreeEnabled = false
     private var awaitingGemmaCommand = false
+    private var speechRestartPending = false
     private lateinit var handsFreeStatus: TextView
 
     private val voiceLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -321,8 +322,21 @@ class MainActivity : AppCompatActivity() {
                 override fun onError(error: Int) {
                     if (!handsFreeEnabled) return
                     handsFreeController.failed()
-                    handsFreeStatus.text = "Hands-free: retrying..."
-                    restartHandsFreeListening()
+                    when (error) {
+                        SpeechRecognizer.ERROR_NO_MATCH,
+                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
+                            handsFreeStatus.text = "Hands-free: listening for \"Gemma\"..."
+                            restartHandsFreeListening(1200)
+                        }
+                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> {
+                            handsFreeStatus.text = "Hands-free: microphone settling..."
+                            restartHandsFreeListening(1800)
+                        }
+                        else -> {
+                            handsFreeStatus.text = "Hands-free: retrying..."
+                            restartHandsFreeListening(1500)
+                        }
+                    }
                 }
                 override fun onResults(results: Bundle?) {
                     if (!handsFreeEnabled) return
@@ -341,18 +355,25 @@ class MainActivity : AppCompatActivity() {
         restartHandsFreeListening()
     }
 
-    private fun restartHandsFreeListening() {
-        if (!handsFreeEnabled || isFinishing || isDestroyed) return
+    private fun restartHandsFreeListening(delayMs: Long = 900L) {
+        if (!handsFreeEnabled || isFinishing || isDestroyed || speechRestartPending) return
+        speechRestartPending = true
         handsFreeStatus.postDelayed({
+            speechRestartPending = false
             if (!handsFreeEnabled || isFinishing || isDestroyed) return@postDelayed
             runCatching {
                 speechRecognizer?.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                     putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
                     putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1400L)
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 900L)
                 })
+            }.onFailure {
+                handsFreeStatus.text = "Hands-free: microphone retry pending..."
+                restartHandsFreeListening(1800)
             }
-        }, 350)
+        }, delayMs)
     }
 
     private fun handleHandsFreeSpeech(spoken: String) {
@@ -529,6 +550,7 @@ $digestContext"""
 
     override fun onDestroy() {
         handsFreeEnabled = false
+        speechRestartPending = false
         handsFreeController.disable()
         speechRecognizer?.cancel()
         speechRecognizer?.destroy()
