@@ -1,12 +1,16 @@
 package com.deanwaylabs.quietos
 
+import android.Manifest
 import android.app.Activity
+import android.content.pm.PackageManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.provider.Settings
+import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
@@ -15,6 +19,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -22,6 +27,7 @@ import androidx.lifecycle.lifecycleScope
 import com.deanwaylabs.quietos.ai.LiteRtQwenModel
 import com.deanwaylabs.quietos.ai.ModelState
 import com.deanwaylabs.quietos.attention.AttentionRepository
+import com.deanwaylabs.quietos.voice.HandsFreeListeningController
 import com.deanwaylabs.quietos.voice.VoiceCommand
 import com.deanwaylabs.quietos.voice.VoiceCommandRouter
 import com.deanwaylabs.quietos.voice.VoiceTextNormalizer
@@ -44,6 +50,11 @@ class MainActivity : AppCompatActivity() {
     private val attentionRepository by lazy { AttentionRepository(this) }
     private val voiceRouter = VoiceCommandRouter()
     private val voiceTextNormalizer = VoiceTextNormalizer()
+    private val handsFreeController = HandsFreeListeningController()
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var handsFreeEnabled = false
+    private var awaitingGemmaCommand = false
+    private lateinit var handsFreeStatus: TextView
 
     private val voiceLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode != Activity.RESULT_OK) return@registerForActivityResult
@@ -54,6 +65,13 @@ class MainActivity : AppCompatActivity() {
             .orEmpty()
 
         if (spoken.isNotEmpty()) handleVoiceInput(spoken)
+    }
+
+    private val microphonePermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) enableHandsFreeListening() else {
+            handsFreeStatus.text = "Hands-free: microphone permission required"
+            transcript.append("\nQuietOS: microphone permission is required for hands-free listening.\n")
+        }
     }
 
     private val picker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -67,6 +85,7 @@ class MainActivity : AppCompatActivity() {
         title = "QuietOS Alpha 0.1"
         setContentView(buildUi())
         lifecycleScope.launch { autoLoadExistingModel() }
+        startHandsFreeWithPermission()
     }
 
     private fun buildUi(): View {
@@ -106,8 +125,12 @@ class MainActivity : AppCompatActivity() {
             isEnabled = false
             setOnClickListener { sendMessage() }
         }
+        handsFreeStatus = TextView(this).apply {
+            text = "Hands-free: starting..."
+            textSize = 14f
+        }
         val talk = Button(this).apply {
-            text = "Talk to Gemma"
+            text = "Talk to Gemma (fallback)"
             setOnClickListener { launchVoiceInput() }
         }
         val transcriptScroll = ScrollView(this).apply {
@@ -122,6 +145,7 @@ class MainActivity : AppCompatActivity() {
         }
         column.addView(status)
         column.addView(choose)
+        column.addView(handsFreeStatus)
 
         attentionStatus = TextView(this).apply {
             text = "Attention Engine: capture not yet verified"
@@ -263,6 +287,94 @@ class MainActivity : AppCompatActivity() {
             } finally {
                 send.isEnabled = model.state == ModelState.READY
             }
+        }
+    }
+
+    private fun startHandsFreeWithPermission() {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            handsFreeStatus.text = "Hands-free: speech recognition unavailable"
+            return
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            enableHandsFreeListening()
+        } else {
+            microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    private fun enableHandsFreeListening() {
+        if (handsFreeEnabled) return
+        handsFreeEnabled = true
+        handsFreeController.enable()
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).also { recognizer ->
+            recognizer.setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: Bundle?) {
+                    handsFreeController.listeningStarted()
+                    handsFreeStatus.text = if (awaitingGemmaCommand) "Hands-free: listening for request..." else "Hands-free: listening for \"Gemma\"..."
+                }
+                override fun onBeginningOfSpeech() = Unit
+                override fun onRmsChanged(rmsdB: Float) = Unit
+                override fun onBufferReceived(buffer: ByteArray?) = Unit
+                override fun onEndOfSpeech() {
+                    handsFreeStatus.text = "Hands-free: processing..."
+                }
+                override fun onError(error: Int) {
+                    if (!handsFreeEnabled) return
+                    handsFreeController.failed()
+                    handsFreeStatus.text = "Hands-free: retrying..."
+                    restartHandsFreeListening()
+                }
+                override fun onResults(results: Bundle?) {
+                    if (!handsFreeEnabled) return
+                    handsFreeController.speechReceived()
+                    val candidates = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty()
+                    val spoken = candidates.firstOrNull()?.trim().orEmpty()
+                    if (spoken.isNotEmpty()) handleHandsFreeSpeech(spoken)
+                    handsFreeController.readyForNextUtterance()
+                    restartHandsFreeListening()
+                }
+                override fun onPartialResults(partialResults: Bundle?) = Unit
+                override fun onEvent(eventType: Int, params: Bundle?) = Unit
+            })
+        }
+        transcript.append("\nQuietOS: hands-free foreground listening enabled. Say \"Gemma\" to wake me.\n")
+        restartHandsFreeListening()
+    }
+
+    private fun restartHandsFreeListening() {
+        if (!handsFreeEnabled || isFinishing || isDestroyed) return
+        handsFreeStatus.postDelayed({
+            if (!handsFreeEnabled || isFinishing || isDestroyed) return@postDelayed
+            runCatching {
+                speechRecognizer?.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+                })
+            }
+        }, 350)
+    }
+
+    private fun handleHandsFreeSpeech(spoken: String) {
+        val wake = Regex("""(?i)\bgemma\b[\s,.:;!?-]*(.*)$""").find(spoken)
+        when {
+            awaitingGemmaCommand -> {
+                awaitingGemmaCommand = false
+                handsFreeStatus.text = "Hands-free: processing request..."
+                handleVoiceInput(spoken)
+            }
+            wake != null -> {
+                val request = wake.groupValues[1].trim()
+                if (request.isEmpty()) {
+                    awaitingGemmaCommand = true
+                    handsFreeStatus.text = "Hands-free: awake, say your request..."
+                    transcript.append("\nQuietOS: Gemma wake detected. Listening for your request.\n")
+                } else {
+                    handsFreeStatus.text = "Hands-free: wake + request detected"
+                    handleVoiceInput(request)
+                }
+            }
+            else -> handsFreeStatus.text = "Hands-free: listening for \"Gemma\"..."
         }
     }
 
@@ -416,6 +528,11 @@ $digestContext"""
     }
 
     override fun onDestroy() {
+        handsFreeEnabled = false
+        handsFreeController.disable()
+        speechRecognizer?.cancel()
+        speechRecognizer?.destroy()
+        speechRecognizer = null
         model.close()
         super.onDestroy()
     }
