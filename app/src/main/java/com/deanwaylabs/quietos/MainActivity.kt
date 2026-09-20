@@ -56,6 +56,7 @@ class MainActivity : AppCompatActivity() {
     private var awaitingGemmaCommand = false
     private var speechRestartPending = false
     private var recognitionSessionActive = false
+    private var handsFreeWakeArmed = true
     private lateinit var handsFreeStatus: TextView
 
     private val voiceLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -350,7 +351,10 @@ class MainActivity : AppCompatActivity() {
                     val spoken = candidates.firstOrNull()?.trim().orEmpty()
                     if (spoken.isNotEmpty()) handleHandsFreeSpeech(spoken)
                     handsFreeController.readyForNextUtterance()
-                    restartHandsFreeListening()
+                    if (awaitingGemmaCommand) restartHandsFreeListening(250) else {
+                        handsFreeWakeArmed = false
+                        handsFreeStatus.text = "Hands-free: wake session complete"
+                    }
                 }
                 override fun onPartialResults(partialResults: Bundle?) = Unit
                 override fun onEvent(eventType: Int, params: Bundle?) = Unit
@@ -366,6 +370,7 @@ class MainActivity : AppCompatActivity() {
         handsFreeStatus.postDelayed({
             speechRestartPending = false
             if (!handsFreeEnabled || isFinishing || isDestroyed) return@postDelayed
+            if (!handsFreeWakeArmed && !awaitingGemmaCommand) return@postDelayed
             if (recognitionSessionActive) return@postDelayed
             runCatching {
                 speechRecognizer?.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -394,14 +399,19 @@ class MainActivity : AppCompatActivity() {
                 val request = wake.groupValues[1].trim()
                 if (request.isEmpty()) {
                     awaitingGemmaCommand = true
+                    handsFreeWakeArmed = true
                     handsFreeStatus.text = "Hands-free: awake, say your request..."
                     transcript.append("\nQuietOS: Gemma wake detected. Listening for your request.\n")
                 } else {
+                    handsFreeWakeArmed = false
                     handsFreeStatus.text = "Hands-free: wake + request detected"
                     handleVoiceInput(request)
                 }
             }
-            else -> handsFreeStatus.text = "Hands-free: listening for \"Gemma\"..."
+            else -> {
+                handsFreeWakeArmed = false
+                handsFreeStatus.text = "Hands-free: wake session complete"
+            }
         }
     }
 
