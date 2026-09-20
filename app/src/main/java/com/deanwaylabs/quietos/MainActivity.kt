@@ -88,7 +88,7 @@ class MainActivity : AppCompatActivity() {
         title = "QuietOS Alpha 0.1"
         setContentView(buildUi())
         lifecycleScope.launch { autoLoadExistingModel() }
-        startHandsFreeWithPermission()
+        handsFreeStatus.text = "Hands-free wake: pending dedicated quiet wake detector"
     }
 
     private fun buildUi(): View {
@@ -133,7 +133,7 @@ class MainActivity : AppCompatActivity() {
             textSize = 14f
         }
         val talk = Button(this).apply {
-            text = "Talk to Gemma (fallback)"
+            text = "Talk to Gemma"
             setOnClickListener { launchVoiceInput() }
         }
         val transcriptScroll = ScrollView(this).apply {
