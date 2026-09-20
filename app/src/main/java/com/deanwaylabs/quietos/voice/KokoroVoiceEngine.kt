@@ -75,7 +75,6 @@ class KokoroVoiceEngine(private val context: Context) {
     }
 
     @Synchronized
-    @Synchronized
     fun speak(text: String, speakerId: Int = 0, speed: Float = 1.0f): Metrics {
         require(text.isNotBlank()) { "Cannot synthesize blank text." }
         val engine = tts ?: run {
