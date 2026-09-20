@@ -277,38 +277,12 @@ class MainActivity : AppCompatActivity() {
         textToSpeech = TextToSpeech(this) { statusCode ->
             if (statusCode == TextToSpeech.SUCCESS) {
                 val engine = textToSpeech ?: return@TextToSpeech
-                val ukLocale = Locale.UK
-                val languageResult = engine.setLanguage(ukLocale)
-                val installedEnglishVoices = engine.voices
-                    ?.filter { voice ->
-                        voice.locale.language.equals("en", ignoreCase = true) &&
-                            !voice.isNetworkConnectionRequired
-                    }
-                    .orEmpty()
-                // Physical test #139 selected en-gb-x-gba-local and sounded too robotic.
-                // Voice trial 2 deliberately moves away from that voice and prefers the
-                // highest-quality installed US English local voice. Keep wake/capture untouched.
-                val preferredVoice = installedEnglishVoices
-                    .filter { voice ->
-                        voice.locale.country.equals("US", ignoreCase = true) &&
-                            !voice.name.equals("en-gb-x-gba-local", ignoreCase = true)
-                    }
-                    .maxWithOrNull(
-                        compareBy<android.speech.tts.Voice> { it.quality }
-                            .thenByDescending { it.latency }
-                    )
-                    ?: installedEnglishVoices
-                        .filterNot { voice ->
-                            voice.name.equals("en-gb-x-gba-local", ignoreCase = true)
-                        }
-                        .maxByOrNull { voice -> voice.quality }
-                if (preferredVoice != null) {
-                    engine.voice = preferredVoice
-                    transcript.append("\nQuietOS: TTS voice selected: ${preferredVoice.name} (${preferredVoice.locale}).\n")
-                }
+                // Restore the original #135 system-default TTS behavior. Physical tests
+                // preferred it over the later forced UK/local voice experiments.
+                val languageResult = engine.setLanguage(Locale.US)
                 ttsReady = languageResult != TextToSpeech.LANG_MISSING_DATA &&
                     languageResult != TextToSpeech.LANG_NOT_SUPPORTED
-                engine.setSpeechRate(1.04f)
+                engine.setSpeechRate(1.0f)
                 engine.setPitch(1.0f)
                 engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) {
@@ -337,7 +311,7 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 })
-                transcript.append(if (ttsReady) "\nQuietOS: Gemma voice ready.\n" else "\nQuietOS: TTS voice data unavailable.\n")
+                transcript.append(if (ttsReady) "\nQuietOS: Gemma voice ready (system default).\n" else "\nQuietOS: TTS voice data unavailable.\n")
             } else {
                 ttsReady = false
                 transcript.append("\nQuietOS: TTS initialization failed.\n")
