@@ -1459,3 +1459,26 @@ Assessment:
 Root-cause direction from live source:
 - Current implementation restarts Android SpeechRecognizer 350 ms after every result and every error. That rapid result/error/restart loop matches the observed microphone cycling and is the next fix target.
 - Protected VoiceTextNormalizer, VoiceCommandRouter, deterministic actions, Gemma fallback, and Attention Engine remain outside this fix scope.
+
+
+## 2026-09-20 - Run #92 CI #119 Motorola partial PASS / microphone restart defect
+
+Physical evidence supplied by Jon Dean:
+- Hands-free foreground wake detection is working.
+- "Gemma" wake was detected repeatedly without tapping the fallback button.
+- A deterministic voice command, "turn attention mode on", executed successfully through the existing QuietOS command router.
+- Screenshot confirms Attention Mode ON and records the accepted voice command.
+- A misrecognized conversational utterance (rendered as "pressure tension log") reached Gemma fallback, confirming the wake -> capture -> routing pipeline is active.
+
+Defect observed:
+- Android SpeechRecognizer microphone/listening session repeatedly drops and restarts, causing audible/visible microphone cycling and contributing to misinterpreted commands.
+- Therefore CI #119 is a PARTIAL PHYSICAL PASS, not the hands-free keeper baseline.
+
+Fix increment:
+- Commit c5ee6f7d7d4386dd1ef7939b24eef03fa2d5d629 serializes recognition restart requests so overlapping callbacks cannot queue repeated microphone starts.
+- Increased restart settling delay and added differentiated retry timing for NO_MATCH/SPEECH_TIMEOUT, RECOGNIZER_BUSY, and other errors.
+- Added speech-completion silence hints to reduce rapid session churn.
+- Existing VoiceTextNormalizer, VoiceCommandRouter, Attention Engine, and Gemma model path remain unchanged.
+
+Next evidence gate:
+- CI must pass on the stabilization commit, then Motorola must verify reduced microphone cycling while preserving wake detection and command execution.
