@@ -1389,3 +1389,31 @@ Protected boundary:
 - No application source is changed by this recovery record.
 - Run #91 remains the physical rollback baseline.
 - Run #92 hands-free state foundation remains the active development increment.
+
+
+## 2026-09-20 - Run #92 repair checkpoint: Gemma fallback + DeanWay normalization physical PASS
+
+Status: CI PASS / MOTOROLA PHYSICAL PASS / KEEPER BASELINE
+
+Physical evidence supplied by Jon Dean:
+- The prior LiteRT-LM conversation failure (roles must alternate user/assistant) no longer occurs during conversational fallback.
+- Root cause was traced to the automatic second continuation prompt introduced by commit acd609e58d42a40ea7ff84547a9ca9fc29812d22.
+- Fix commits 98984fcf2c4f7db4d3f2a74e8d45f1fc1210b279 and e45ac66793c912d8146789dc8601572fe3655272 removed that unsafe same-conversation continuation behavior and its obsolete heuristic.
+- CI #114 (run ID 35516805851) completed SUCCESS at head e45ac66793c912d8146789dc8601572fe3655272. Artifact ID 10607231553; SHA-256 b4faff4851c4c6721566543c5b46e07230aac4d8d701edeb119f77ad2de5c40e.
+
+DeanWay voice-normalization regression/restoration:
+- Physical testing exposed Android transcription variants including Greenway travel that were not covered by the committed normalizer.
+- QuietOS normalization was restored/expanded before routing for Greenway/Green way/Dean way travel variants while preserving existing Jon Dean, DeanWay Labs, DeanWay Travels, QuietOS and GhostMode corrections.
+- Source commit ca6634c1a592dc01f65bd23b963a9a9fe161fac4; regression-test commit 2951df79ccabac439b9c313359ec9232e8a31f38.
+- CI #116 (run ID 35518525049) completed SUCCESS at head 2951df79ccabac439b9c313359ec9232e8a31f38. Artifact ID 10607871727; SHA-256 d0b8b4bb98366509033373e74ad5e9a444d3ac91763b9aff7e867bfd8d2dcad6.
+- Motorola screenshots physically verified Dean way -> DeanWay, Dean way travels -> DeanWay Travels, Dean way labs -> DeanWay Labs, John Dean -> Jon Dean, and quiet OS -> QuietOS before routing.
+- Deterministic known-fact paths continued to return 0 ms / 0 model chunks where applicable.
+
+Separate observation, not a failure of this gate:
+- A conversational Gemma answer to a correctly normalized DeanWay Labs question was contextually poor. This is tracked as later conversational/memory-quality work and must not be 'fixed' by weakening the verified normalization layer.
+
+Keeper decision:
+- Gemma fallback repair: PHYSICAL PASS.
+- DeanWay voice normalization restoration: PHYSICAL PASS.
+- These are protected baselines for the next Run #92 hands-free increment.
+- Active next target remains: Gemma wake/listen -> capture -> VoiceTextNormalizer -> existing VoiceCommandRouter/deterministic handling or Gemma fallback -> QuietOS output -> ready state.
