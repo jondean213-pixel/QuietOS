@@ -1482,3 +1482,19 @@ Fix increment:
 
 Next evidence gate:
 - CI must pass on the stabilization commit, then Motorola must verify reduced microphone cycling while preserving wake detection and command execution.
+
+
+## 2026-09-20 - Run #92 CI #122 microphone cycling still FAILS physically
+
+Motorola result:
+- CI #122 preserved successful wake/command behavior but did NOT stop the repeated microphone/beep in-out cycle.
+- The timing-only stabilization attempt is therefore rejected as the solution.
+
+Next controlled fix:
+- Commit 1493b51a54ad70f84b6883b98c10d0ed14adf088 adds explicit active-recognition-session ownership.
+- QuietOS will not call startListening while Android reports the current recognizer session active.
+- Session ownership is cleared only on end-of-speech, results, error, or teardown.
+- This targets overlapping startListening calls rather than merely increasing delays.
+- Protected normalization, deterministic routing, Attention Engine, and Gemma integration remain unchanged.
+
+Physical verification remains required; no keeper claim is made.
