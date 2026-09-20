@@ -58,6 +58,7 @@ class MainActivity : AppCompatActivity() {
     private var recognitionSessionActive = false
     private var handsFreeWakeArmed = true
     private var wakeSessionConsumed = false
+    private var wakeDetectedInSession = false
     private lateinit var handsFreeStatus: TextView
 
     private val voiceLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -317,7 +318,7 @@ class MainActivity : AppCompatActivity() {
                     handsFreeController.listeningStarted()
                     handsFreeStatus.text = if (awaitingGemmaCommand) "Hands-free: listening for request..." else "Hands-free: listening for \"Gemma\"..."
                 }
-                override fun onBeginningOfSpeech() = Unit
+                override fun onBeginningOfSpeech() { wakeDetectedInSession = false }
                 override fun onRmsChanged(rmsdB: Float) = Unit
                 override fun onBufferReceived(buffer: ByteArray?) = Unit
                 override fun onEndOfSpeech() {
@@ -330,7 +331,8 @@ class MainActivity : AppCompatActivity() {
                     handsFreeController.failed()
                     if (!awaitingGemmaCommand) {
                         wakeSessionConsumed = true
-                        handsFreeStatus.text = "Hands-free: ready for quiet wake redesign"
+                        handsFreeWakeArmed = false
+                        handsFreeStatus.text = "QuietOS: wake listener idle"
                         return
                     }
                     when (error) {
@@ -368,7 +370,10 @@ class MainActivity : AppCompatActivity() {
             })
         }
         transcript.append("\nQuietOS: hands-free foreground listening enabled. Say \"Gemma\" to wake me.\n")
-        restartHandsFreeListening()
+        wakeSessionConsumed = false
+        handsFreeWakeArmed = true
+        wakeDetectedInSession = false
+        restartHandsFreeListening(0)
     }
 
     private fun restartHandsFreeListening(delayMs: Long = 900L) {
@@ -404,6 +409,7 @@ class MainActivity : AppCompatActivity() {
                 handleVoiceInput(spoken)
             }
             wake != null -> {
+                wakeDetectedInSession = true
                 val request = wake.groupValues[1].trim()
                 if (request.isEmpty()) {
                     awaitingGemmaCommand = true
