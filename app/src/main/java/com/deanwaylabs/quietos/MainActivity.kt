@@ -101,6 +101,10 @@ class MainActivity : AppCompatActivity() {
         updateCallScreeningStatus()
     }
 
+    private val smsRoleLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        updateSmsRoleStatus()
+    }
+
     private val kokoroFolderPicker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) lifecycleScope.launch { importKokoroFolder(uri) }
     }
@@ -282,7 +286,18 @@ class MainActivity : AppCompatActivity() {
         column.addView(messageSpamStatus)
         column.addView(messageSpamButton)
         column.addView(viewMessageSpam)
+        val smsRoleStatus = TextView(this).apply {
+            tag = "sms_role_status"
+            textSize = 16f
+        }
+        val enableSmsRole = Button(this).apply {
+            text = "Make QuietOS Default SMS App"
+            setOnClickListener { requestSmsRole() }
+        }
+        column.addView(smsRoleStatus)
+        column.addView(enableSmsRole)
         updateMessageSpamStatus()
+        smsRoleStatus.post { updateSmsRoleStatus() }
 
         column.addView(
             transcriptScroll,
@@ -853,6 +868,7 @@ $digestContext"""
         super.onResume()
         if (::attentionStatus.isInitialized) refreshAttentionLog()
         updateCallScreeningStatus()
+        updateSmsRoleStatus()
         if (::messageSpamStatus.isInitialized) updateMessageSpamStatus()
     }
 
@@ -882,6 +898,37 @@ $digestContext"""
             .setView(ScrollView(this).apply { addView(view) })
             .setPositiveButton("BACK") { dialog, _ -> dialog.dismiss() }
             .show()
+    }
+
+    private fun requestSmsRole() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            transcript.append("\nQuietOS: Android 10 or newer is required for the SMS role.\n")
+            return
+        }
+        val roleManager = getSystemService(RoleManager::class.java)
+        if (!roleManager.isRoleAvailable(RoleManager.ROLE_SMS)) {
+            transcript.append("\nQuietOS: the SMS role is not available on this device.\n")
+            return
+        }
+        if (roleManager.isRoleHeld(RoleManager.ROLE_SMS)) {
+            updateSmsRoleStatus()
+            return
+        }
+        smsRoleLauncher.launch(roleManager.createRequestRoleIntent(RoleManager.ROLE_SMS))
+    }
+
+    private fun updateSmsRoleStatus() {
+        val root = findViewById<View>(android.R.id.content)
+        val statusView = findTaggedTextView(root, "sms_role_status") ?: return
+        val active = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = getSystemService(RoleManager::class.java)
+            roleManager.isRoleAvailable(RoleManager.ROLE_SMS) && roleManager.isRoleHeld(RoleManager.ROLE_SMS)
+        } else false
+        statusView.text = if (active) {
+            "SMS Handler: QuietOS ACTIVE"
+        } else {
+            "SMS Handler: system messaging app"
+        }
     }
 
     private fun queryDisplayName(uri: Uri): String? {
