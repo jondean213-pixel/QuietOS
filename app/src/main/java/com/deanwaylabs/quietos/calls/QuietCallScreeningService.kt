@@ -3,22 +3,13 @@ package com.deanwaylabs.quietos.calls
 import android.telecom.Call
 import android.telecom.CallScreeningService
 
-/**
- * QuietOS call-screening boundary.
- *
- * Milestone 1 is intentionally conservative: it records the screening path
- * but allows calls until the local trust/risk rules have been physically
- * verified. QuietOS, not Gemma, owns the real-time call decision.
- */
+/** QuietOS owns real-time screening. Gemma is not on the call-decision path. */
 class QuietCallScreeningService : CallScreeningService() {
     override fun onScreenCall(callDetails: Call.Details) {
-        val response = CallResponse.Builder()
-            .setDisallowCall(false)
-            .setRejectCall(false)
-            .setSilenceCall(false)
-            .setSkipCallLog(false)
-            .setSkipNotification(false)
-            .build()
+        val number = callDetails.handle?.schemeSpecificPart
+        val decision = CallRiskEngine(this).classify(number)
+        CallScreeningLog(this).record(number.orEmpty(), decision)
+        val response = CallResponse.Builder().setDisallowCall(decision.block).setRejectCall(decision.block).setSilenceCall(decision.silence && !decision.block).setSkipCallLog(false).setSkipNotification(false).build()
         respondToCall(callDetails, response)
     }
 }
