@@ -296,6 +296,13 @@ class MainActivity : AppCompatActivity() {
         }
         column.addView(smsRoleStatus)
         column.addView(enableSmsRole)
+        val openMessages = Button(this).apply {
+            text = "Open QuietOS Messages"
+            setOnClickListener {
+                startActivity(Intent(this@MainActivity, com.deanwaylabs.quietos.messages.MessagesActivity::class.java))
+            }
+        }
+        column.addView(openMessages)
         updateMessageSpamStatus()
         smsRoleStatus.post { updateSmsRoleStatus() }
 
