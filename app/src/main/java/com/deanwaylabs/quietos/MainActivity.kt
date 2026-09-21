@@ -209,6 +209,13 @@ class MainActivity : AppCompatActivity() {
         }
         updateInterceptionButton()
 
+        val bucketRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        listOf("NOW", "SOON", "DIGEST", "QUIET").forEach { bucket ->
+            bucketRow.addView(Button(this).apply {
+                text = bucket
+                setOnClickListener { showAttentionBucket(bucket) }
+            }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        }
         val refreshAttention = Button(this).apply {
             text = "Refresh Attention Log"
             setOnClickListener { refreshAttentionLog() }
@@ -233,10 +240,11 @@ class MainActivity : AppCompatActivity() {
         column.addView(attentionStatus)
         column.addView(notificationAccess)
         column.addView(interceptionButton)
+        column.addView(bucketRow)
         column.addView(refreshAttention)
         column.addView(summarizeDigest)
         column.addView(clearAttention)
-        column.addView(attentionLog)
+        // Keep captured call/notification details out of the main screen; bucket buttons expose them on demand.
 
         val callScreeningStatus = TextView(this).apply {
             id = View.generateViewId()
@@ -726,11 +734,21 @@ $digestContext"""
         }
     }
 
+    private fun showAttentionBucket(bucket: String) {
+        val classification = runCatching { com.deanwaylabs.quietos.attention.AttentionClass.valueOf(bucket) }.getOrNull() ?: return
+        val records = attentionRepository.readAll().filter { it.classification == classification }
+        transcript.append("\nQuietOS $bucket: ${records.size} item(s).\n")
+        records.take(10).forEach { record ->
+            transcript.append("${record.title.ifBlank { record.packageName }}: ${record.text.take(180)}\n")
+        }
+        if (records.isEmpty()) transcript.append("Nothing waiting in $bucket.\n")
+    }
+
     private fun refreshAttentionLog() {
         val records = attentionRepository.readAll()
         if (records.isEmpty()) {
             attentionStatus.text = "Attention Engine: no captured notifications yet"
-            attentionLog.text = "No captured notifications yet."
+            if (::attentionLog.isInitialized) attentionLog.text = "No captured notifications yet."
             return
         }
 
@@ -738,7 +756,7 @@ $digestContext"""
         val cancelled = records.count { it.originalCancelled }
         attentionStatus.text = "Attention Engine: captured ${records.size} | NOW ${counts[com.deanwaylabs.quietos.attention.AttentionClass.NOW] ?: 0} | SOON ${counts[com.deanwaylabs.quietos.attention.AttentionClass.SOON] ?: 0} | DIGEST ${counts[com.deanwaylabs.quietos.attention.AttentionClass.DIGEST] ?: 0} | QUIET ${counts[com.deanwaylabs.quietos.attention.AttentionClass.QUIET] ?: 0} | cancelled $cancelled"
 
-        attentionLog.text = records.take(5).joinToString("\n\n") { record ->
+        if (::attentionLog.isInitialized) attentionLog.text = records.take(5).joinToString("\n\n") { record ->
             val action = if (record.originalCancelled) "QuietOS intercepted and cancelled the original" else "Original left in Android notification flow"
             "[${record.classification}] ${record.title.ifBlank { record.packageName }}\n${record.text.take(180)}\nWhy: ${record.reason}\nAction: $action"
         }
