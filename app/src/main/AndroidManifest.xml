@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.READ_CONTACTS"/>
     <application android:allowBackup="false" android:label="QuietOS" android:theme="@style/Theme.QuietOS">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
@@ -15,6 +16,15 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService"/>
+            </intent-filter>
+        </service>
+        <service
+            android:name=".calls.QuietCallScreeningService"
+            android:label="QuietOS Spam Call Protection"
+            android:permission="android.permission.BIND_SCREENING_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.telecom.CallScreeningService"/>
             </intent-filter>
         </service>
     </application>
