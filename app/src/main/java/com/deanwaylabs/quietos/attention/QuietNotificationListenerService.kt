@@ -4,6 +4,8 @@ import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.provider.Telephony
+import android.os.Handler
+import android.os.Looper
 import com.deanwaylabs.quietos.messages.MessageSpamLog
 import com.deanwaylabs.quietos.messages.MessageSpamRiskEngine
 
@@ -13,6 +15,7 @@ class QuietNotificationListenerService : NotificationListenerService() {
     private val repository by lazy { AttentionRepository(this) }
     private val messageSpamEngine by lazy { MessageSpamRiskEngine() }
     private val messageSpamLog by lazy { MessageSpamLog(this) }
+    private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         val posted = sbn ?: return
@@ -45,7 +48,13 @@ class QuietNotificationListenerService : NotificationListenerService() {
             val spamDecision = messageSpamEngine.classify(title, text)
             spamSuppressed = spamDecision.suppressNotification
             spamReason = spamDecision.reason
-            if (spamSuppressed) cancelNotification(posted.key)
+            if (spamSuppressed) {
+                // Some messaging apps update/re-post the same notification immediately after delivery.
+                // Cancel now and repeat twice so the final updated notification is also removed.
+                cancelNotification(posted.key)
+                mainHandler.postDelayed({ runCatching { cancelNotification(posted.key) } }, 200L)
+                mainHandler.postDelayed({ runCatching { cancelNotification(posted.key) } }, 700L)
+            }
             messageSpamLog.add(
                 timestampMs = posted.postTime,
                 sender = title,
