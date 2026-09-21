@@ -23,6 +23,10 @@
         </activity>
 
         <activity
+            android:name=".messages.MessagesActivity"
+            android:exported="false"/>
+
+        <activity
             android:name=".messages.SmsComposeActivity"
             android:exported="true">
             <intent-filter>
