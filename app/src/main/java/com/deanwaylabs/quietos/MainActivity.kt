@@ -26,6 +26,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.documentfile.provider.DocumentFile
+import com.deanwaylabs.quietos.voice.KokoroVoiceEngine
 import com.deanwaylabs.quietos.ai.LiteRtQwenModel
 import com.deanwaylabs.quietos.ai.ModelState
 import com.deanwaylabs.quietos.attention.AttentionRepository
@@ -68,6 +70,8 @@ class MainActivity : AppCompatActivity() {
     private var textToSpeech: TextToSpeech? = null
     private var ttsReady = false
     private var activeTtsUtteranceId: String? = null
+    private val kokoroVoice by lazy { KokoroVoiceEngine(this) }
+    private lateinit var neuralVoiceStatus: TextView
 
     private val voiceLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode != Activity.RESULT_OK) return@registerForActivityResult
@@ -85,6 +89,10 @@ class MainActivity : AppCompatActivity() {
             handsFreeStatus.text = "Hands-free: microphone permission required"
             transcript.append("\nQuietOS: microphone permission is required for hands-free listening.\n")
         }
+    }
+
+    private val kokoroFolderPicker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) lifecycleScope.launch { importKokoroFolder(uri) }
     }
 
     private val picker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -160,6 +168,21 @@ class MainActivity : AppCompatActivity() {
         column.addView(status)
         column.addView(choose)
         column.addView(handsFreeStatus)
+        neuralVoiceStatus = TextView(this).apply {
+            text = if (kokoroVoice.isInstalled()) "Neural voice: Kokoro installed" else "Neural voice: Kokoro not installed"
+            textSize = 14f
+        }
+        val importNeuralVoice = Button(this).apply {
+            text = "Install Kokoro Voice Folder"
+            setOnClickListener { kokoroFolderPicker.launch(null) }
+        }
+        val auditionEmma = Button(this).apply {
+            text = "Audition Emma (British)"
+            setOnClickListener { auditionKokoroEmma() }
+        }
+        column.addView(neuralVoiceStatus)
+        column.addView(importNeuralVoice)
+        column.addView(auditionEmma)
 
         attentionStatus = TextView(this).apply {
             text = "Attention Engine: capture not yet verified"
@@ -221,6 +244,74 @@ class MainActivity : AppCompatActivity() {
         column.addView(talk)
         column.addView(send)
         return column
+    }
+
+    private suspend fun importKokoroFolder(uri: Uri) {
+        neuralVoiceStatus.text = "Neural voice: importing Kokoro..."
+        try {
+            withContext(Dispatchers.IO) {
+                val source = DocumentFile.fromTreeUri(this@MainActivity, uri)
+                    ?: error("Could not open selected Kokoro folder.")
+                val destination = File(filesDir, "voices/kokoro")
+                if (destination.exists()) destination.deleteRecursively()
+                destination.mkdirs()
+                copyDocumentTree(source, destination)
+            }
+            require(kokoroVoice.isInstalled()) {
+                "Folder must contain model.onnx, voices.bin, tokens.txt, and espeak-ng-data."
+            }
+            val loadMs = withContext(Dispatchers.Default) { kokoroVoice.load() }
+            val speakers = withContext(Dispatchers.Default) { kokoroVoice.numSpeakers() }
+            neuralVoiceStatus.text = "Neural voice: READY | load $loadMs ms | speakers $speakers"
+            transcript.append("\nQuietOS: Kokoro neural voice installed.\n")
+        } catch (t: Throwable) {
+            neuralVoiceStatus.text = "Neural voice FAILED: ${t.message ?: t.javaClass.simpleName}"
+            transcript.append("\nQuietOS: Kokoro import failed: ${t.message ?: t.javaClass.simpleName}\n")
+        }
+    }
+
+    private fun copyDocumentTree(source: DocumentFile, destination: File) {
+        source.listFiles().forEach { child ->
+            val name = child.name ?: return@forEach
+            val target = File(destination, name)
+            if (child.isDirectory) {
+                target.mkdirs()
+                copyDocumentTree(child, target)
+            } else if (child.isFile) {
+                contentResolver.openInputStream(child.uri).use { inputStream ->
+                    requireNotNull(inputStream) { "Could not read $name" }
+                    FileOutputStream(target).use { output -> inputStream.copyTo(output, 1024 * 1024) }
+                }
+            }
+        }
+    }
+
+    private fun auditionKokoroEmma() {
+        if (!kokoroVoice.isInstalled()) {
+            neuralVoiceStatus.text = "Neural voice: install Kokoro first"
+            return
+        }
+        wakeWordSpotter?.stop()
+        textToSpeech?.stop()
+        handsFreeStatus.text = "Gemma: neural voice audition..."
+        neuralVoiceStatus.text = "Neural voice: synthesizing Emma..."
+        lifecycleScope.launch {
+            try {
+                val metrics = withContext(Dispatchers.Default) {
+                    kokoroVoice.speak(
+                        text = "Hello Jon. I am Gemma. I think this voice suits me rather well.",
+                        speakerId = 7,
+                        speed = 1.0f
+                    )
+                }
+                neuralVoiceStatus.text = "Emma | synth ${metrics.synthesisMs} ms | audio ${metrics.audioDurationMs} ms | ${metrics.sampleRate} Hz"
+                transcript.append("\n[neural voice: Emma sid 7 | synth ${metrics.synthesisMs} ms | audio ${metrics.audioDurationMs} ms]\n")
+                handsFreeStatus.postDelayed({ returnToWakeIdle() }, metrics.audioDurationMs + 250L)
+            } catch (t: Throwable) {
+                neuralVoiceStatus.text = "Neural voice FAILED: ${t.message ?: t.javaClass.simpleName}"
+                returnToWakeIdle()
+            }
+        }
     }
 
     private suspend fun autoLoadExistingModel() {
@@ -633,6 +724,7 @@ $digestContext"""
         speechRecognizer?.cancel()
         speechRecognizer?.destroy()
         speechRecognizer = null
+        kokoroVoice.release()
         textToSpeech?.stop()
         textToSpeech?.shutdown()
         textToSpeech = null
