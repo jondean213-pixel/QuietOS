@@ -49,7 +49,7 @@ class KokoroVoiceEngine(private val context: Context) {
     }
 
     @Synchronized
-    fun load(numThreads: Int = 2): Long {
+    fun load(numThreads: Int = 4): Long {
         if (tts != null) return lastLoadMs
         require(isInstalled()) { "Kokoro voice files are not installed." }
         val d = modelDir()
@@ -65,7 +65,7 @@ class KokoroVoiceEngine(private val context: Context) {
                 debug = false,
                 provider = "cpu",
             ),
-            maxNumSentences = 1,
+            maxNumSentences = 2,
             silenceScale = 0.2f,
         )
         val started = System.nanoTime()
