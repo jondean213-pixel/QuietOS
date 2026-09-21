@@ -34,6 +34,7 @@ import com.deanwaylabs.quietos.voice.KokoroVoiceEngine
 import com.deanwaylabs.quietos.ai.LiteRtQwenModel
 import com.deanwaylabs.quietos.ai.ModelState
 import com.deanwaylabs.quietos.attention.AttentionRepository
+import com.deanwaylabs.quietos.messages.MessageSpamLog
 import com.deanwaylabs.quietos.voice.HandsFreeListeningController
 import com.deanwaylabs.quietos.voice.GemmaWakeWordSpotter
 import com.deanwaylabs.quietos.voice.VoiceCommand
@@ -56,6 +57,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var attentionStatus: TextView
     private lateinit var attentionLog: TextView
     private lateinit var interceptionButton: Button
+    private lateinit var messageSpamStatus: TextView
+    private lateinit var messageSpamButton: Button
     private val attentionRepository by lazy { AttentionRepository(this) }
     private val voiceRouter = VoiceCommandRouter()
     private val voiceTextNormalizer = VoiceTextNormalizer()
@@ -260,6 +263,26 @@ class MainActivity : AppCompatActivity() {
         column.addView(callScreeningStatus)
         column.addView(enableCallScreening)
         callScreeningStatus.post { updateCallScreeningStatus() }
+
+        messageSpamStatus = TextView(this).apply {
+            textSize = 16f
+        }
+        messageSpamButton = Button(this).apply {
+            setOnClickListener {
+                val prefs = getSharedPreferences("quietos_message_spam", MODE_PRIVATE)
+                val next = !prefs.getBoolean("enabled", false)
+                prefs.edit().putBoolean("enabled", next).apply()
+                updateMessageSpamStatus()
+            }
+        }
+        val viewMessageSpam = Button(this).apply {
+            text = "View Message Spam Log"
+            setOnClickListener { showMessageSpamLog() }
+        }
+        column.addView(messageSpamStatus)
+        column.addView(messageSpamButton)
+        column.addView(viewMessageSpam)
+        updateMessageSpamStatus()
 
         column.addView(
             transcriptScroll,
@@ -830,6 +853,35 @@ $digestContext"""
         super.onResume()
         if (::attentionStatus.isInitialized) refreshAttentionLog()
         updateCallScreeningStatus()
+        if (::messageSpamStatus.isInitialized) updateMessageSpamStatus()
+    }
+
+    private fun updateMessageSpamStatus() {
+        val enabled = getSharedPreferences("quietos_message_spam", MODE_PRIVATE)
+            .getBoolean("enabled", false)
+        val count = MessageSpamLog(this).readAll().size
+        messageSpamStatus.text = "Spam Message Protection: " + if (enabled) "ACTIVE | logged $count" else "INACTIVE | logged $count"
+        messageSpamButton.text = if (enabled) "Disable Spam Message Protection" else "Enable Spam Message Protection"
+    }
+
+    private fun showMessageSpamLog() {
+        val records = MessageSpamLog(this).readAll()
+        val body = if (records.isEmpty()) {
+            "No SMS spam decisions logged yet."
+        } else {
+            records.take(40).joinToString("\n\n")
+        }
+        val view = TextView(this).apply {
+            text = body
+            textSize = 16f
+            val space = (20 * resources.displayMetrics.density).toInt()
+            setPadding(space, space, space, space)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Spam Message Log • ${records.size}")
+            .setView(ScrollView(this).apply { addView(view) })
+            .setPositiveButton("BACK") { dialog, _ -> dialog.dismiss() }
+            .show()
     }
 
     private fun queryDisplayName(uri: Uri): String? {
