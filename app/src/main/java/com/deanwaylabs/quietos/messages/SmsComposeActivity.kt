@@ -2,6 +2,8 @@ package com.deanwaylabs.quietos.messages
 
 import android.app.Activity
 import android.os.Bundle
+import android.content.ContentValues
+import android.provider.Telephony
 import android.telephony.SmsManager
 import android.widget.Button
 import android.widget.EditText
@@ -33,6 +35,17 @@ class SmsComposeActivity : Activity() {
                 } else {
                     runCatching {
                         SmsManager.getDefault().sendTextMessage(number, null, text, null, null)
+                        contentResolver.insert(
+                            Telephony.Sms.Sent.CONTENT_URI,
+                            ContentValues().apply {
+                                put(Telephony.Sms.ADDRESS, number)
+                                put(Telephony.Sms.BODY, text)
+                                put(Telephony.Sms.DATE, System.currentTimeMillis())
+                                put(Telephony.Sms.READ, 1)
+                                put(Telephony.Sms.SEEN, 1)
+                                put(Telephony.Sms.TYPE, Telephony.Sms.MESSAGE_TYPE_SENT)
+                            }
+                        )
                     }.onSuccess {
                         status.text = "Message sent."
                     }.onFailure {
