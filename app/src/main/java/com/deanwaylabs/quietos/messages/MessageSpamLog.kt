@@ -23,8 +23,13 @@ class MessageSpamLog(context: Context) {
             append("\nTime: ").append(timestampMs)
         }
 
-        val updated = (listOf(entry) + readAll()).take(MAX_ENTRIES)
-        prefs.edit().putStringSet(KEY_ENTRIES, updated.mapIndexed { index, value -> "%03d|%s".format(index, value) }.toSet()).apply()
+        val existing = readAll()
+        if (existing.contains(entry)) return
+
+        val updated = (listOf(entry) + existing).take(MAX_ENTRIES)
+        prefs.edit()
+            .putStringSet(KEY_ENTRIES, updated.mapIndexed { index, value -> "%03d|%s".format(index, value) }.toSet())
+            .apply()
     }
 
     fun readAll(): List<String> {
