@@ -411,10 +411,32 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun speakGemma(text: String) {
-        if (!ttsReady || text.isBlank()) return
+        if (text.isBlank()) return
         wakeWordSpotter?.stop()
         textToSpeech?.stop()
-        val utteranceId = "gemma-${System.nanoTime()}"
+        if (kokoroVoice.isInstalled()) {
+            handsFreeStatus.text = "Gemma: speaking..."
+            lifecycleScope.launch {
+                try {
+                    val metrics = withContext(Dispatchers.Default) { kokoroVoice.speak(text, 7, 1.0f) }
+                    neuralVoiceStatus.text = "Gemma voice: Emma | synth " + metrics.synthesisMs + " ms | audio " + metrics.audioDurationMs + " ms"
+                    handsFreeStatus.postDelayed({ returnToWakeIdle() }, metrics.audioDurationMs + 250L)
+                } catch (t: Throwable) {
+                    neuralVoiceStatus.text = "Neural voice FAILED: " + (t.message ?: t.javaClass.simpleName)
+                    speakGemmaWithSystemFallback(text)
+                }
+            }
+            return
+        }
+        speakGemmaWithSystemFallback(text)
+    }
+
+    private fun speakGemmaWithSystemFallback(text: String) {
+        if (!ttsReady || text.isBlank()) {
+            returnToWakeIdle()
+            return
+        }
+        val utteranceId = "gemma-" + System.nanoTime()
         activeTtsUtteranceId = utteranceId
         textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
     }
