@@ -22,6 +22,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.app.AlertDialog
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.appcompat.app.AppCompatActivity
@@ -735,13 +736,40 @@ $digestContext"""
     }
 
     private fun showAttentionBucket(bucket: String) {
-        val classification = runCatching { com.deanwaylabs.quietos.attention.AttentionClass.valueOf(bucket) }.getOrNull() ?: return
+        val classification = runCatching {
+            com.deanwaylabs.quietos.attention.AttentionClass.valueOf(bucket)
+        }.getOrNull() ?: return
         val records = attentionRepository.readAll().filter { it.classification == classification }
-        transcript.append("\nQuietOS $bucket: ${records.size} item(s).\n")
-        records.take(10).forEach { record ->
-            transcript.append("${record.title.ifBlank { record.packageName }}: ${record.text.take(180)}\n")
+
+        val body = if (records.isEmpty()) {
+            "Nothing waiting in $bucket."
+        } else {
+            records.take(25).joinToString("\n\n") { record ->
+                val action = if (record.originalCancelled) {
+                    "QuietOS intercepted the original"
+                } else {
+                    "Original remains in Android notification flow"
+                }
+                "${record.title.ifBlank { record.packageName }}\n${record.text.take(240)}\nWhy: ${record.reason}\nAction: $action"
+            }
         }
-        if (records.isEmpty()) transcript.append("Nothing waiting in $bucket.\n")
+
+        val workspace = TextView(this).apply {
+            text = body
+            textSize = 18f
+            val space = (20 * resources.displayMetrics.density).toInt()
+            setPadding(space, space, space, space)
+        }
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+            addView(workspace)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("$bucket Workspace • ${records.size} item(s)")
+            .setView(scroll)
+            .setPositiveButton("BACK") { dialog, _ -> dialog.dismiss() }
+            .show()
     }
 
     private fun refreshAttentionLog() {
