@@ -6,6 +6,8 @@ import android.content.pm.PackageManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Build
+import android.app.role.RoleManager
 import android.provider.OpenableColumns
 import android.provider.Settings
 import android.speech.RecognitionListener
@@ -89,6 +91,10 @@ class MainActivity : AppCompatActivity() {
             handsFreeStatus.text = "Hands-free: microphone permission required"
             transcript.append("\nQuietOS: microphone permission is required for hands-free listening.\n")
         }
+    }
+
+    private val callScreeningRoleLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        updateCallScreeningStatus()
     }
 
     private val kokoroFolderPicker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -231,6 +237,20 @@ class MainActivity : AppCompatActivity() {
         column.addView(summarizeDigest)
         column.addView(clearAttention)
         column.addView(attentionLog)
+
+        val callScreeningStatus = TextView(this).apply {
+            id = View.generateViewId()
+            tag = "call_screening_status"
+            text = "Spam Call Protection: checking..."
+            textSize = 16f
+        }
+        val enableCallScreening = Button(this).apply {
+            text = "Enable Spam Call Protection"
+            setOnClickListener { requestCallScreeningRole() }
+        }
+        column.addView(callScreeningStatus)
+        column.addView(enableCallScreening)
+        callScreeningStatus.post { updateCallScreeningStatus() }
 
         column.addView(
             transcriptScroll,
@@ -724,9 +744,46 @@ $digestContext"""
         }
     }
 
+    private fun requestCallScreeningRole() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            transcript.append("\nQuietOS: Android 10 or newer is required for the call-screening role.\n")
+            return
+        }
+        val roleManager = getSystemService(RoleManager::class.java)
+        if (!roleManager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING)) {
+            transcript.append("\nQuietOS: call screening is not available on this device.\n")
+            return
+        }
+        if (roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)) {
+            transcript.append("\nQuietOS: Spam Call Protection is already active.\n")
+            updateCallScreeningStatus()
+            return
+        }
+        callScreeningRoleLauncher.launch(roleManager.createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING))
+    }
+
+    private fun updateCallScreeningStatus() {
+        val root = findViewById<View>(android.R.id.content)
+        val statusView = findTaggedTextView(root, "call_screening_status") ?: return
+        val active = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = getSystemService(RoleManager::class.java)
+            roleManager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING) && roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)
+        } else false
+        statusView.text = if (active) "Spam Call Protection: ACTIVE" else "Spam Call Protection: INACTIVE"
+    }
+
+    private fun findTaggedTextView(view: View, wantedTag: String): TextView? {
+        if (view is TextView && view.tag == wantedTag) return view
+        if (view is android.view.ViewGroup) for (i in 0 until view.childCount) {
+            findTaggedTextView(view.getChildAt(i), wantedTag)?.let { return it }
+        }
+        return null
+    }
+
     override fun onResume() {
         super.onResume()
         if (::attentionStatus.isInitialized) refreshAttentionLog()
+        updateCallScreeningStatus()
     }
 
     private fun queryDisplayName(uri: Uri): String? {
