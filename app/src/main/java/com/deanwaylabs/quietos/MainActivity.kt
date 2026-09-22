@@ -125,199 +125,172 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun buildUi(): View {
-        val pad = (20 * resources.displayMetrics.density).toInt()
-        val column = LinearLayout(this).apply {
+        val pad = (16 * resources.displayMetrics.density).toInt()
+        val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad, pad, pad)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.MATCH_PARENT
-            )
+            setBackgroundColor(android.graphics.Color.rgb(2, 7, 22))
         }
-        ViewCompat.setOnApplyWindowInsetsListener(column) { view, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
-            view.setPadding(
-                pad,
-                pad,
-                pad,
-                pad + maxOf(systemBars.bottom, ime.bottom)
-            )
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(pad, pad + bars.top, pad, pad + bars.bottom)
             insets
         }
-        column.addView(TextView(this).apply {
-            text = "QuietOS Alpha 0.1\nAssistant: Gemma"
-            textSize = 22f
-        })
-        status = TextView(this).apply { text = "Gemma status: not loaded" }
-        choose = Button(this).apply {
-            text = "Choose Gemma model"
-            setOnClickListener { picker.launch(arrayOf("*/*")) }
-        }
-        transcript = TextView(this).apply { text = "Conversation will appear here.\n" }
-        input = EditText(this).apply { hint = "Message Gemma" }
-        send = Button(this).apply {
-            text = "Send"
-            isEnabled = false
-            setOnClickListener { sendMessage() }
-        }
-        handsFreeStatus = TextView(this).apply {
-            text = "Hands-free: starting..."
-            textSize = 14f
-        }
-        val talk = Button(this).apply {
-            text = "Talk to Gemma"
-            setOnClickListener { launchVoiceInput() }
-        }
-        val transcriptScroll = ScrollView(this).apply {
-            isFillViewport = true
-            addView(
-                transcript,
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.WRAP_CONTENT
-                )
-            )
-        }
-        column.addView(status)
-        column.addView(choose)
-        column.addView(handsFreeStatus)
-        neuralVoiceStatus = TextView(this).apply {
-            text = if (kokoroVoice.isInstalled()) "Neural voice: Kokoro installed" else "Neural voice: Kokoro not installed"
-            textSize = 14f
-        }
-        val importNeuralVoice = Button(this).apply {
-            text = "Install Kokoro Voice Folder"
-            setOnClickListener { kokoroFolderPicker.launch(null) }
-        }
-        val auditionEmma = Button(this).apply {
-            text = "Audition Emma (British)"
-            setOnClickListener { auditionKokoroEmma() }
-        }
-        column.addView(neuralVoiceStatus)
-        column.addView(importNeuralVoice)
-        column.addView(auditionEmma)
 
-        attentionStatus = TextView(this).apply {
-            text = "Attention Engine: capture not yet verified"
-            textSize = 16f
+        root.addView(TextView(this).apply {
+            text = "QuietOS"
+            textSize = 38f
+            gravity = android.view.Gravity.CENTER
+            setTextColor(android.graphics.Color.rgb(190, 205, 255))
+        })
+        root.addView(TextView(this).apply {
+            text = "BY DEANWAY LABS    •    FOCUS  •  CONTROL  •  PEACE"
+            textSize = 12f
+            gravity = android.view.Gravity.CENTER
+            setTextColor(android.graphics.Color.rgb(110, 180, 255))
+        })
+
+        status = TextView(this).apply { text = "Gemma status: not loaded"; visibility = View.GONE }
+        choose = Button(this).apply { text = "Choose Gemma model"; visibility = View.GONE; setOnClickListener { picker.launch(arrayOf("*/*")) } }
+        transcript = TextView(this).apply { text = "Conversation will appear here.\n"; visibility = View.GONE }
+        input = EditText(this).apply { hint = "Message Gemma"; visibility = View.GONE }
+        send = Button(this).apply { text = "Send"; isEnabled = false; visibility = View.GONE; setOnClickListener { sendMessage() } }
+        handsFreeStatus = TextView(this).apply {
+            text = "QuietOS: starting..."
+            textSize = 13f
+            gravity = android.view.Gravity.CENTER
+            setTextColor(android.graphics.Color.LTGRAY)
         }
-        val notificationAccess = Button(this).apply {
-            text = "Enable Notification Access"
-            setOnClickListener {
-                startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-            }
-        }
+        neuralVoiceStatus = TextView(this).apply { text = if (kokoroVoice.isInstalled()) "Neural voice: Kokoro installed" else "Neural voice: Kokoro not installed"; visibility = View.GONE }
+        attentionStatus = TextView(this).apply { text = "Attention Engine: ready"; visibility = View.GONE }
+        attentionLog = TextView(this).apply { text = ""; visibility = View.GONE }
         interceptionButton = Button(this).apply {
+            visibility = View.GONE
             setOnClickListener {
                 val prefs = getSharedPreferences("quietos_attention", MODE_PRIVATE)
-                val next = !prefs.getBoolean("interception_enabled", false)
-                setAttentionMode(next)
+                setAttentionMode(!prefs.getBoolean("interception_enabled", false))
             }
         }
-        updateInterceptionButton()
-
-        val bucketRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        listOf("NOW", "SOON", "DIGEST", "QUIET").forEach { bucket ->
-            bucketRow.addView(Button(this).apply {
-                text = bucket
-                setOnClickListener { showAttentionBucket(bucket) }
-            }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        }
-        val refreshAttention = Button(this).apply {
-            text = "Refresh Attention Log"
-            setOnClickListener { refreshAttentionLog() }
-        }
-        val summarizeDigest = Button(this).apply {
-            text = "Gemma: Summarize Digest"
-            setOnClickListener { summarizeDigestWithGemma() }
-        }
-        val clearAttention = Button(this).apply {
-            text = "Clear Attention Log"
+        messageSpamStatus = TextView(this).apply { visibility = View.GONE }
+        messageSpamButton = Button(this).apply {
+            visibility = View.GONE
             setOnClickListener {
-                attentionRepository.clear()
-                refreshAttentionLog()
-                transcript.append("\nQuietOS: attention log cleared.\n")
+                val prefs = getSharedPreferences("quietos_message_spam", MODE_PRIVATE)
+                prefs.edit().putBoolean("enabled", !prefs.getBoolean("enabled", false)).apply()
+                updateMessageSpamStatus()
             }
         }
-        attentionLog = TextView(this).apply {
-            text = "No captured notifications yet."
-            textSize = 14f
-            setPadding(0, pad / 2, 0, pad / 2)
-        }
-        column.addView(attentionStatus)
-        column.addView(notificationAccess)
-        column.addView(interceptionButton)
-        column.addView(bucketRow)
-        column.addView(refreshAttention)
-        column.addView(summarizeDigest)
-        column.addView(clearAttention)
-        // Keep captured call/notification details out of the main screen; bucket buttons expose them on demand.
 
-        val callScreeningStatus = TextView(this).apply {
-            id = View.generateViewId()
+        val orbGrid = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = android.view.Gravity.CENTER
+        }
+        fun orb(label: String, subtitle: String, action: () -> Unit): Button = Button(this).apply {
+            text = "$label\n$subtitle"
+            textSize = 17f
+            isAllCaps = false
+            minHeight = (92 * resources.displayMetrics.density).toInt()
+            setOnClickListener { action() }
+        }
+        fun row(left: View, right: View): LinearLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER
+            addView(left, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = pad / 2 })
+            addView(right, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = pad / 2 })
+        }
+
+        orbGrid.addView(row(
+            orb("⚡ NOW", "HANDLE IT NOW") { showAttentionBucket("NOW") },
+            orb("◷ SOON", "FOR LATER") { showAttentionBucket("SOON") }
+        ))
+
+        val gemmaOrb = Button(this).apply {
+            text = "GEMMA\nYOUR AI ASSISTANT\n\n“I’ve got you.”"
+            textSize = 20f
+            isAllCaps = false
+            minHeight = (190 * resources.displayMetrics.density).toInt()
+            setOnClickListener { launchVoiceInput() }
+        }
+        orbGrid.addView(gemmaOrb, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = pad / 2; bottomMargin = pad / 2
+        })
+
+        orbGrid.addView(row(
+            orb("☷ DIGEST", "BATCH & REVIEW") { showAttentionBucket("DIGEST") },
+            orb("☾ QUIET", "KEEP IT SILENT") { showAttentionBucket("QUIET") }
+        ))
+
+        val spamOrb = orb("⬡ SPAM SHIELD", "BLOCK • LOG • PROTECT") { showSpamShieldWorkspace() }
+        orbGrid.addView(spamOrb, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = pad / 2
+        })
+
+        root.addView(orbGrid, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        root.addView(handsFreeStatus)
+        root.addView(TextView(this).apply {
+            text = "DEANWAY LABS    •    BUILDING A QUIETER TOMORROW"
+            textSize = 12f
+            gravity = android.view.Gravity.CENTER
+            setTextColor(android.graphics.Color.rgb(110, 180, 255))
+        })
+
+        updateInterceptionButton()
+        updateMessageSpamStatus()
+        return root
+    }
+
+    private fun showSpamShieldWorkspace() {
+        val pad = (16 * resources.displayMetrics.density).toInt()
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, pad, pad, pad)
+        }
+        val callStatus = TextView(this).apply {
             tag = "call_screening_status"
             text = "Spam Call Protection: checking..."
             textSize = 16f
         }
-        val enableCallScreening = Button(this).apply {
+        val smsStatus = TextView(this).apply {
+            tag = "sms_role_status"
+            text = "SMS Handler: checking..."
+            textSize = 16f
+        }
+        content.addView(callStatus)
+        content.addView(Button(this).apply {
             text = "Enable Spam Call Protection"
             setOnClickListener { requestCallScreeningRole() }
-        }
-        column.addView(callScreeningStatus)
-        column.addView(enableCallScreening)
-        callScreeningStatus.post { updateCallScreeningStatus() }
-
-        messageSpamStatus = TextView(this).apply {
-            textSize = 16f
-        }
-        messageSpamButton = Button(this).apply {
-            setOnClickListener {
-                val prefs = getSharedPreferences("quietos_message_spam", MODE_PRIVATE)
-                val next = !prefs.getBoolean("enabled", false)
-                prefs.edit().putBoolean("enabled", next).apply()
-                updateMessageSpamStatus()
-            }
-        }
-        val viewMessageSpam = Button(this).apply {
-            text = "View Message Spam Log"
+        })
+        content.addView(messageSpamStatus)
+        content.addView(messageSpamButton)
+        content.addView(Button(this).apply {
+            text = "View Message Quarantine"
             setOnClickListener { showMessageSpamLog() }
-        }
-        column.addView(messageSpamStatus)
-        column.addView(messageSpamButton)
-        column.addView(viewMessageSpam)
-        val smsRoleStatus = TextView(this).apply {
-            tag = "sms_role_status"
-            textSize = 16f
-        }
-        val enableSmsRole = Button(this).apply {
+        })
+        content.addView(smsStatus)
+        content.addView(Button(this).apply {
             text = "Make QuietOS Default SMS App"
             setOnClickListener { requestSmsRole() }
-        }
-        column.addView(smsRoleStatus)
-        column.addView(enableSmsRole)
-        val openMessages = Button(this).apply {
+        })
+        content.addView(Button(this).apply {
             text = "Open QuietOS Messages"
-            setOnClickListener {
-                startActivity(Intent(this@MainActivity, com.deanwaylabs.quietos.messages.MessagesActivity::class.java))
+            setOnClickListener { startActivity(Intent(this@MainActivity, com.deanwaylabs.quietos.messages.MessagesActivity::class.java)) }
+        })
+        content.addView(Button(this).apply {
+            text = "Notification Access"
+            setOnClickListener { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+        })
+        AlertDialog.Builder(this)
+            .setTitle("SPAM SHIELD Workspace")
+            .setView(ScrollView(this).apply { addView(content) })
+            .setPositiveButton("FOLD INTO ORB") { dialog, _ -> dialog.dismiss() }
+            .setOnDismissListener {
+                updateCallScreeningStatus()
+                updateSmsRoleStatus()
+                updateMessageSpamStatus()
             }
-        }
-        column.addView(openMessages)
-        updateMessageSpamStatus()
-        smsRoleStatus.post { updateSmsRoleStatus() }
-
-        column.addView(
-            transcriptScroll,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
-        )
-        column.addView(input)
-        column.addView(talk)
-        column.addView(send)
-        return column
+            .show()
+        callStatus.post { updateCallScreeningStatus() }
+        smsStatus.post { updateSmsRoleStatus() }
     }
 
     private suspend fun importKokoroFolder(uri: Uri) {
