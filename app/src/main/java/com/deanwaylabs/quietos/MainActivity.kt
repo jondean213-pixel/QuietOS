@@ -22,6 +22,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import android.app.AlertDialog
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -114,6 +115,8 @@ class MainActivity : AppCompatActivity() {
                 )
             }
             lifecycleScope.launch { importKokoroFolder(uri) }
+        } else {
+            restoreHandsFreeAfterExternalAction()
         }
     }
 
@@ -123,6 +126,8 @@ class MainActivity : AppCompatActivity() {
                 contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             lifecycleScope.launch { importAndLoad(uri) }
+        } else {
+            restoreHandsFreeAfterExternalAction()
         }
     }
 
@@ -243,7 +248,8 @@ class MainActivity : AppCompatActivity() {
                 if (model.state != ModelState.READY || !kokoroVoice.isInstalled()) {
                     showGemmaSetupWorkspace()
                 } else {
-                    launchVoiceInput()
+                    restoreHandsFreeAfterExternalAction()
+                    handsFreeStatus.text = "QuietOS: hands-free active, say \"Gemma\""
                 }
             }
             setOnLongClickListener {
@@ -267,6 +273,25 @@ class MainActivity : AppCompatActivity() {
 
         root.addView(orbGrid, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         root.addView(handsFreeStatus)
+
+        val utilityRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER
+            addView(Button(this@MainActivity).apply {
+                text = "GEMMA SETUP"
+                isAllCaps = false
+                setOnClickListener { showGemmaSetupWorkspace() }
+            }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = pad / 2 })
+            addView(Button(this@MainActivity).apply {
+                text = "MESSAGES"
+                isAllCaps = false
+                setOnClickListener {
+                    startActivity(Intent(this@MainActivity, com.deanwaylabs.quietos.messages.MessagesActivity::class.java))
+                }
+            }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = pad / 2 })
+        }
+        root.addView(utilityRow)
+
         root.addView(TextView(this).apply {
             text = "DEANWAY LABS    •    BUILDING A QUIETER TOMORROW"
             textSize = 12f
@@ -308,7 +333,7 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { auditionKokoroEmma() }
         })
         content.addView(TextView(this).apply {
-            text = "Import guide: Gemma selects the .litertlm FILE. Emma selects the extracted Kokoro FOLDER containing model.onnx, voices.bin, tokens.txt, and espeak-ng-data. QuietOS keeps Android read access after selection. Once both are installed, tap the center orb to talk. Long-press Gemma anytime to reopen setup."
+            text = "Import guide: Gemma selects the .litertlm FILE. Emma selects the extracted Kokoro FOLDER containing model.onnx, voices.bin, tokens.txt, and espeak-ng-data. You may also select the parent folder that contains that Kokoro folder. QuietOS keeps Android read access after selection. Once both are installed, say Gemma for hands-free use. GEMMA SETUP stays available on the home screen."
             textSize = 14f
             setPadding(0, pad, 0, 0)
         })
@@ -356,6 +381,10 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { startActivity(Intent(this@MainActivity, com.deanwaylabs.quietos.messages.MessagesActivity::class.java)) }
         })
         content.addView(Button(this).apply {
+            text = "New Message"
+            setOnClickListener { startActivity(Intent(this@MainActivity, com.deanwaylabs.quietos.messages.SmsComposeActivity::class.java)) }
+        })
+        content.addView(Button(this).apply {
             text = "Notification Access"
             setOnClickListener { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
         })
@@ -375,43 +404,90 @@ class MainActivity : AppCompatActivity() {
 
     private fun launchGemmaModelPicker() {
         status.text = "Gemma status: choose the .litertlm model file..."
+        pauseHandsFreeForExternalAction()
         runCatching { picker.launch(arrayOf("application/octet-stream", "*/*")) }
             .onFailure {
                 status.text = "Gemma picker FAILED: " + (it.message ?: it.javaClass.simpleName)
+                restoreHandsFreeAfterExternalAction()
             }
     }
 
     private fun launchEmmaFolderPicker() {
         neuralVoiceStatus.text = "Neural voice: choose the extracted Kokoro folder..."
+        pauseHandsFreeForExternalAction()
         runCatching { kokoroFolderPicker.launch(null) }
             .onFailure {
                 neuralVoiceStatus.text = "Emma folder picker FAILED: " + (it.message ?: it.javaClass.simpleName)
+                Toast.makeText(this, neuralVoiceStatus.text, Toast.LENGTH_LONG).show()
+                restoreHandsFreeAfterExternalAction()
             }
     }
 
     private suspend fun importKokoroFolder(uri: Uri) {
+        pauseHandsFreeForExternalAction()
         neuralVoiceStatus.text = "Neural voice: importing Kokoro..."
+        val staging = File(filesDir, "voices/kokoro-import")
         try {
             withContext(Dispatchers.IO) {
-                val source = DocumentFile.fromTreeUri(this@MainActivity, uri)
+                val selected = DocumentFile.fromTreeUri(this@MainActivity, uri)
                     ?: error("Could not open selected Kokoro folder.")
+                val source = findKokoroBundle(selected)
+                    ?: error("Could not find model.onnx, voices.bin, tokens.txt, and espeak-ng-data in the selected folder.")
+                if (staging.exists()) staging.deleteRecursively()
+                staging.mkdirs()
+                copyDocumentTree(source, staging)
+                require(fileHasKokoroBundle(staging)) {
+                    "Kokoro files were found but could not be copied completely."
+                }
+
+                kokoroVoice.release()
                 val destination = File(filesDir, "voices/kokoro")
                 if (destination.exists()) destination.deleteRecursively()
-                destination.mkdirs()
-                copyDocumentTree(source, destination)
-            }
-            require(kokoroVoice.isInstalled()) {
-                "Folder must contain model.onnx, voices.bin, tokens.txt, and espeak-ng-data."
+                if (!staging.renameTo(destination)) {
+                    staging.copyRecursively(destination, overwrite = true)
+                    staging.deleteRecursively()
+                }
+                require(fileHasKokoroBundle(destination)) { "Kokoro install did not complete." }
             }
             val loadMs = withContext(Dispatchers.Default) { kokoroVoice.load() }
             val speakers = withContext(Dispatchers.Default) { kokoroVoice.numSpeakers() }
             neuralVoiceStatus.text = "Neural voice: READY | load $loadMs ms | speakers $speakers"
             transcript.append("\nQuietOS: Kokoro neural voice installed.\n")
+            Toast.makeText(this, "Emma voice installed and ready.", Toast.LENGTH_LONG).show()
         } catch (t: Throwable) {
+            staging.deleteRecursively()
             neuralVoiceStatus.text = "Neural voice FAILED: ${t.message ?: t.javaClass.simpleName}"
             transcript.append("\nQuietOS: Kokoro import failed: ${t.message ?: t.javaClass.simpleName}\n")
+            Toast.makeText(this, neuralVoiceStatus.text, Toast.LENGTH_LONG).show()
+        } finally {
+            restoreHandsFreeAfterExternalAction()
         }
     }
+
+    private fun findKokoroBundle(root: DocumentFile, depth: Int = 0): DocumentFile? {
+        if (documentHasKokoroBundle(root)) return root
+        if (depth >= 3) return null
+        root.listFiles().filter { it.isDirectory }.forEach { child ->
+            findKokoroBundle(child, depth + 1)?.let { return it }
+        }
+        return null
+    }
+
+    private fun documentHasKokoroBundle(folder: DocumentFile): Boolean {
+        val children = folder.listFiles()
+        fun hasFile(name: String) = children.any { it.isFile && it.name.equals(name, ignoreCase = true) }
+        fun hasDir(name: String) = children.any { it.isDirectory && it.name.equals(name, ignoreCase = true) }
+        return hasFile("model.onnx") &&
+            hasFile("voices.bin") &&
+            hasFile("tokens.txt") &&
+            hasDir("espeak-ng-data")
+    }
+
+    private fun fileHasKokoroBundle(folder: File): Boolean =
+        File(folder, "model.onnx").isFile &&
+            File(folder, "voices.bin").isFile &&
+            File(folder, "tokens.txt").isFile &&
+            File(folder, "espeak-ng-data").isDirectory
 
     private fun copyDocumentTree(source: DocumentFile, destination: File) {
         source.listFiles().forEach { child ->
@@ -481,10 +557,7 @@ class MainActivity : AppCompatActivity() {
         choose.isEnabled = false
         send.isEnabled = false
         status.text = "Gemma status: importing model..."
-        handsFreeEnabled = false
-        wakeWordSpotter?.stop()
-        speechRecognizer?.cancel()
-        recognitionSessionActive = false
+        pauseHandsFreeForExternalAction()
         try {
             val displayName = queryDisplayName(uri) ?: "gemma-model.litertlm"
             require(displayName.endsWith(".litertlm", ignoreCase = true)) { "Select a .litertlm model file." }
@@ -508,11 +581,7 @@ class MainActivity : AppCompatActivity() {
             transcript.append("\nQuietOS: model load failed.\n")
         } finally {
             choose.isEnabled = true
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                enableHandsFreeListening()
-            } else {
-                handsFreeStatus.text = "QuietOS: microphone permission required"
-            }
+            restoreHandsFreeAfterExternalAction()
         }
     }
 
@@ -638,10 +707,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun enableHandsFreeListening() {
-        if (handsFreeEnabled) return
-        handsFreeEnabled = true
-        handsFreeController.enable()
-        ensureCommandRecognizer()
+        if (!handsFreeEnabled) {
+            handsFreeEnabled = true
+            handsFreeController.enable()
+            ensureCommandRecognizer()
+        }
 
         if (wakeWordSpotter == null) {
             wakeWordSpotter = GemmaWakeWordSpotter(
@@ -663,6 +733,26 @@ class MainActivity : AppCompatActivity() {
         handsFreeStatus.text = "QuietOS: idle, say \"Gemma\""
         transcript.append("\nQuietOS: local Gemma wake detector armed.\n")
         wakeWordSpotter?.start()
+    }
+
+    private fun pauseHandsFreeForExternalAction() {
+        handsFreeEnabled = false
+        handsFreeController.disable()
+        recognitionSessionActive = false
+        wakeWordSpotter?.stop()
+        speechRecognizer?.cancel()
+    }
+
+    private fun restoreHandsFreeAfterExternalAction() {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            handsFreeStatus.text = "QuietOS: speech recognition unavailable"
+            return
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            enableHandsFreeListening()
+        } else {
+            handsFreeStatus.text = "QuietOS: microphone permission required"
+        }
     }
 
     private fun ensureCommandRecognizer() {
@@ -955,6 +1045,7 @@ $digestContext"""
         updateCallScreeningStatus()
         updateSmsRoleStatus()
         if (::messageSpamStatus.isInitialized) updateMessageSpamStatus()
+        if (::handsFreeStatus.isInitialized) restoreHandsFreeAfterExternalAction()
     }
 
     private fun updateMessageSpamStatus() {
