@@ -106,11 +106,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val kokoroFolderPicker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (uri != null) lifecycleScope.launch { importKokoroFolder(uri) }
+        if (uri != null) {
+            runCatching {
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            }
+            lifecycleScope.launch { importKokoroFolder(uri) }
+        }
     }
 
     private val picker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
+            runCatching {
+                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
             lifecycleScope.launch { importAndLoad(uri) }
         }
     }
@@ -151,7 +162,7 @@ class MainActivity : AppCompatActivity() {
         })
 
         status = TextView(this).apply { text = "Gemma status: not loaded"; visibility = View.GONE }
-        choose = Button(this).apply { text = "Choose Gemma model"; visibility = View.GONE; setOnClickListener { picker.launch(arrayOf("*/*")) } }
+        choose = Button(this).apply { text = "Choose Gemma model"; visibility = View.GONE; setOnClickListener { launchGemmaModelPicker() } }
         transcript = TextView(this).apply { text = "Conversation will appear here.\n"; visibility = View.GONE }
         input = EditText(this).apply { hint = "Message Gemma"; visibility = View.GONE }
         send = Button(this).apply { text = "Send"; isEnabled = false; visibility = View.GONE; setOnClickListener { sendMessage() } }
@@ -190,7 +201,20 @@ class MainActivity : AppCompatActivity() {
             textSize = 17f
             isAllCaps = false
             minHeight = (92 * resources.displayMetrics.density).toInt()
-            setOnClickListener { action() }
+            setTextColor(android.graphics.Color.rgb(220, 228, 255))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                cornerRadius = 28f * resources.displayMetrics.density
+                setColor(android.graphics.Color.rgb(8, 14, 38))
+                setStroke((2 * resources.displayMetrics.density).toInt(), android.graphics.Color.rgb(96, 76, 210))
+            }
+            setPadding(pad / 2, pad / 2, pad / 2, pad / 2)
+            setOnClickListener {
+                animate().scaleX(0.97f).scaleY(0.97f).setDuration(80L).withEndAction {
+                    animate().scaleX(1f).scaleY(1f).setDuration(120L).start()
+                    action()
+                }.start()
+            }
         }
         fun row(left: View, right: View): LinearLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -209,6 +233,12 @@ class MainActivity : AppCompatActivity() {
             textSize = 20f
             isAllCaps = false
             minHeight = (190 * resources.displayMetrics.density).toInt()
+            setTextColor(android.graphics.Color.rgb(235, 230, 255))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL
+                setColor(android.graphics.Color.rgb(11, 13, 42))
+                setStroke((3 * resources.displayMetrics.density).toInt(), android.graphics.Color.rgb(126, 86, 235))
+            }
             setOnClickListener {
                 if (model.state != ModelState.READY || !kokoroVoice.isInstalled()) {
                     showGemmaSetupWorkspace()
@@ -266,19 +296,19 @@ class MainActivity : AppCompatActivity() {
         content.addView(modelState)
         content.addView(Button(this).apply {
             text = "Connect Gemma Model"
-            setOnClickListener { picker.launch(arrayOf("*/*")) }
+            setOnClickListener { launchGemmaModelPicker() }
         })
         content.addView(voiceState)
         content.addView(Button(this).apply {
             text = "Install Emma / Kokoro Voice Folder"
-            setOnClickListener { kokoroFolderPicker.launch(null) }
+            setOnClickListener { launchEmmaFolderPicker() }
         })
         content.addView(Button(this).apply {
             text = "Audition Emma"
             setOnClickListener { auditionKokoroEmma() }
         })
         content.addView(TextView(this).apply {
-            text = "Tip: once Gemma and Emma are installed, tap the center orb to talk. Long-press the Gemma orb anytime to reopen this setup workspace."
+            text = "Import guide: Gemma selects the .litertlm FILE. Emma selects the extracted Kokoro FOLDER containing model.onnx, voices.bin, tokens.txt, and espeak-ng-data. QuietOS keeps Android read access after selection. Once both are installed, tap the center orb to talk. Long-press Gemma anytime to reopen setup."
             textSize = 14f
             setPadding(0, pad, 0, 0)
         })
@@ -341,6 +371,22 @@ class MainActivity : AppCompatActivity() {
             .show()
         callStatus.post { updateCallScreeningStatus() }
         smsStatus.post { updateSmsRoleStatus() }
+    }
+
+    private fun launchGemmaModelPicker() {
+        status.text = "Gemma status: choose the .litertlm model file..."
+        runCatching { picker.launch(arrayOf("application/octet-stream", "*/*")) }
+            .onFailure {
+                status.text = "Gemma picker FAILED: " + (it.message ?: it.javaClass.simpleName)
+            }
+    }
+
+    private fun launchEmmaFolderPicker() {
+        neuralVoiceStatus.text = "Neural voice: choose the extracted Kokoro folder..."
+        runCatching { kokoroFolderPicker.launch(null) }
+            .onFailure {
+                neuralVoiceStatus.text = "Emma folder picker FAILED: " + (it.message ?: it.javaClass.simpleName)
+            }
     }
 
     private suspend fun importKokoroFolder(uri: Uri) {
@@ -462,7 +508,11 @@ class MainActivity : AppCompatActivity() {
             transcript.append("\nQuietOS: model load failed.\n")
         } finally {
             choose.isEnabled = true
-            returnToWakeIdle()
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                enableHandsFreeListening()
+            } else {
+                handsFreeStatus.text = "QuietOS: microphone permission required"
+            }
         }
     }
 
