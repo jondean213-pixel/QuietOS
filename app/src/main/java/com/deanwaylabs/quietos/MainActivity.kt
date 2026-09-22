@@ -435,7 +435,7 @@ class MainActivity : AppCompatActivity() {
         choose.isEnabled = false
         send.isEnabled = false
         status.text = "Gemma status: importing model..."
-        handsFreeController.pause()
+        handsFreeEnabled = false
         wakeWordSpotter?.stop()
         speechRecognizer?.cancel()
         recognitionSessionActive = false
