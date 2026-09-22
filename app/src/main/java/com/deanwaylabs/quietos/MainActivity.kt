@@ -209,7 +209,17 @@ class MainActivity : AppCompatActivity() {
             textSize = 20f
             isAllCaps = false
             minHeight = (190 * resources.displayMetrics.density).toInt()
-            setOnClickListener { launchVoiceInput() }
+            setOnClickListener {
+                if (model.state != ModelState.READY || !kokoroVoice.isInstalled()) {
+                    showGemmaSetupWorkspace()
+                } else {
+                    launchVoiceInput()
+                }
+            }
+            setOnLongClickListener {
+                showGemmaSetupWorkspace()
+                true
+            }
         }
         orbGrid.addView(gemmaOrb, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
             topMargin = pad / 2; bottomMargin = pad / 2
@@ -237,6 +247,46 @@ class MainActivity : AppCompatActivity() {
         updateInterceptionButton()
         updateMessageSpamStatus()
         return root
+    }
+
+    private fun showGemmaSetupWorkspace() {
+        val pad = (16 * resources.displayMetrics.density).toInt()
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, pad, pad, pad)
+        }
+        val modelState = TextView(this).apply {
+            text = if (model.state == ModelState.READY) "Gemma model: READY" else "Gemma model: not loaded"
+            textSize = 17f
+        }
+        val voiceState = TextView(this).apply {
+            text = if (kokoroVoice.isInstalled()) "Emma voice: Kokoro installed" else "Emma voice: not installed"
+            textSize = 17f
+        }
+        content.addView(modelState)
+        content.addView(Button(this).apply {
+            text = "Connect Gemma Model"
+            setOnClickListener { picker.launch(arrayOf("*/*")) }
+        })
+        content.addView(voiceState)
+        content.addView(Button(this).apply {
+            text = "Install Emma / Kokoro Voice Folder"
+            setOnClickListener { kokoroFolderPicker.launch(null) }
+        })
+        content.addView(Button(this).apply {
+            text = "Audition Emma"
+            setOnClickListener { auditionKokoroEmma() }
+        })
+        content.addView(TextView(this).apply {
+            text = "Tip: once Gemma and Emma are installed, tap the center orb to talk. Long-press the Gemma orb anytime to reopen this setup workspace."
+            textSize = 14f
+            setPadding(0, pad, 0, 0)
+        })
+        AlertDialog.Builder(this)
+            .setTitle("GEMMA Setup Workspace")
+            .setView(ScrollView(this).apply { addView(content) })
+            .setPositiveButton("FOLD INTO ORB") { dialog, _ -> dialog.dismiss() }
+            .show()
     }
 
     private fun showSpamShieldWorkspace() {
