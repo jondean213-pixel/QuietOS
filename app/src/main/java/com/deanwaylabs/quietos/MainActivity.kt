@@ -435,6 +435,10 @@ class MainActivity : AppCompatActivity() {
         choose.isEnabled = false
         send.isEnabled = false
         status.text = "Gemma status: importing model..."
+        handsFreeController.pause()
+        wakeWordSpotter?.stop()
+        speechRecognizer?.cancel()
+        recognitionSessionActive = false
         try {
             val displayName = queryDisplayName(uri) ?: "gemma-model.litertlm"
             require(displayName.endsWith(".litertlm", ignoreCase = true)) { "Select a .litertlm model file." }
@@ -458,6 +462,7 @@ class MainActivity : AppCompatActivity() {
             transcript.append("\nQuietOS: model load failed.\n")
         } finally {
             choose.isEnabled = true
+            returnToWakeIdle()
         }
     }
 
