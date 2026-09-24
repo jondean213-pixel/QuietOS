@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Build
+import android.os.SystemClock
 import android.app.role.RoleManager
 import android.provider.OpenableColumns
 import android.provider.Settings
@@ -79,6 +80,39 @@ class MainActivity : AppCompatActivity() {
     private var activeTtsUtteranceId: String? = null
     private val kokoroVoice by lazy { KokoroVoiceEngine(this) }
     private lateinit var neuralVoiceStatus: TextView
+
+    // Diagnostic-only QuietOS latency trace. No routing or model behavior changes.
+    private data class QuietOsLatencyTrace(
+        val wakeMs: Long,
+        var recognizerReadyMs: Long? = null,
+        var speechBeginMs: Long? = null,
+        var speechEndMs: Long? = null,
+        var recognitionResultMs: Long? = null,
+        var routeCompleteMs: Long? = null,
+        var gemmaStartMs: Long? = null,
+        var gemmaCompleteMs: Long? = null,
+        var emmaStartMs: Long? = null,
+        var emmaCompleteMs: Long? = null
+    )
+    private var latencyTrace: QuietOsLatencyTrace? = null
+
+    private fun markLatency(label: String) {
+        val trace = latencyTrace ?: return
+        val elapsed = SystemClock.elapsedRealtime() - trace.wakeMs
+        transcript.append("\n[QuietOS latency: " + label + " +" + elapsed + " ms]\n")
+    }
+
+    private fun appendLatencySummary() {
+        val t = latencyTrace ?: return
+        fun delta(a: Long?, b: Long?): String = if (a != null && b != null) (b - a).toString() + " ms" else "n/a"
+        transcript.append("\n[QuietOS E2E: wake→recognizer " + delta(t.wakeMs, t.recognizerReadyMs) +
+            " | speech " + delta(t.speechBeginMs, t.speechEndMs) +
+            " | recognition " + delta(t.speechEndMs, t.recognitionResultMs) +
+            " | route " + delta(t.recognitionResultMs, t.routeCompleteMs) +
+            " | Gemma " + delta(t.gemmaStartMs, t.gemmaCompleteMs) +
+            " | Emma synth " + delta(t.emmaStartMs, t.emmaCompleteMs) +
+            " | wake→audio " + delta(t.wakeMs, t.emmaCompleteMs) + "]\n")
+    }
 
     private val voiceLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode != Activity.RESULT_OK) return@registerForActivityResult
