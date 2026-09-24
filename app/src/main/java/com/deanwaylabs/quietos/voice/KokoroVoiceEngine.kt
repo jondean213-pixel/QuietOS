@@ -96,21 +96,11 @@ class KokoroVoiceEngine(private val context: Context) {
         }
         stopPlayback()
 
-        // Start Emma with the first natural sentence instead of forcing Jon to wait
-        // for the entire reply to synthesize before hearing anything.
-        val firstSentenceEnd = text.indexOfFirst { it == '.' || it == '!' || it == '?' }
-        val firstSegment = if (firstSentenceEnd in 0 until text.lastIndex) {
-            text.substring(0, firstSentenceEnd + 1).trim()
-        } else {
-            text.trim()
-        }
-        val remaining = if (firstSegment.length < text.length) {
-            text.substring(firstSegment.length).trim()
-        } else ""
-
+        // Preserve #179 voice behavior while measuring exactly how much full
+        // Kokoro synthesis contributes to Jon's perceived response delay.
         val started = System.nanoTime()
         val audio = engine.generateWithConfig(
-            text = firstSegment,
+            text = text,
             config = GenerationConfig(
                 sid = speakerId,
                 speed = speed,
@@ -160,10 +150,6 @@ class KokoroVoiceEngine(private val context: Context) {
         val audioSetupMs = (System.nanoTime() - audioSetupStarted) / 1_000_000
         val timeToPlaybackMs = (System.nanoTime() - speakStarted) / 1_000_000
 
-        // Keep the first-sentence optimization conservative for the Motorola.
-        // The remainder is intentionally not synthesized concurrently here because
-        // OfflineTts thread-safety is not proven and concurrent CPU work could
-        // reintroduce the heat/lag that #179 eliminated.
         val totalAudioDurationMs = (audio.samples.size * 1000L) / audio.sampleRate
 
         return Metrics(
