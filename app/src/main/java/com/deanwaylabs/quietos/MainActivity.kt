@@ -673,7 +673,12 @@ class MainActivity : AppCompatActivity() {
             handsFreeStatus.text = "Gemma: speaking..."
             lifecycleScope.launch {
                 try {
+                    latencyTrace?.emmaStartMs = SystemClock.elapsedRealtime()
+                    markLatency("QuietOS handed response to Emma")
                     val metrics = withContext(Dispatchers.Default) { kokoroVoice.speak(text, 7, 1.0f) }
+                    latencyTrace?.emmaCompleteMs = SystemClock.elapsedRealtime()
+                    markLatency("Emma synthesis complete / playback started")
+                    appendLatencySummary()
                     neuralVoiceStatus.text = "Gemma voice: Emma | synth " + metrics.synthesisMs + " ms | audio " + metrics.audioDurationMs + " ms"
                     handsFreeStatus.postDelayed({ returnToWakeIdle() }, metrics.audioDurationMs + 250L)
                 } catch (t: Throwable) {
@@ -705,8 +710,12 @@ class MainActivity : AppCompatActivity() {
         status.text = "Gemma status: generating..."
         lifecycleScope.launch {
             try {
+                latencyTrace?.gemmaStartMs = SystemClock.elapsedRealtime()
+                markLatency("QuietOS handed request to Gemma")
                 val started = System.nanoTime()
                 val result = model.send(message)
+                latencyTrace?.gemmaCompleteMs = SystemClock.elapsedRealtime()
+                markLatency("Gemma returned to QuietOS")
                 val reply = result.text
                 val elapsed = (System.nanoTime() - started) / 1_000_000
                 if (reply.isBlank()) {
@@ -752,7 +761,9 @@ class MainActivity : AppCompatActivity() {
                 context = this,
                 onWake = {
                     if (!handsFreeEnabled) return@GemmaWakeWordSpotter
+                    latencyTrace = QuietOsLatencyTrace(SystemClock.elapsedRealtime())
                     transcript.append("\nQuietOS wake: Gemma\n")
+                    markLatency("wake detected")
                     handsFreeStatus.text = "QuietOS: awake, listening for request..."
                     wakeWordSpotter?.stop()
                     startCommandRecognition()
@@ -794,14 +805,21 @@ class MainActivity : AppCompatActivity() {
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).apply {
             setRecognitionListener(object : RecognitionListener {
                 override fun onReadyForSpeech(params: Bundle?) {
+                    latencyTrace?.recognizerReadyMs = SystemClock.elapsedRealtime()
+                    markLatency("command recognizer ready")
                     recognitionSessionActive = true
                     handsFreeController.listeningStarted()
                     handsFreeStatus.text = "QuietOS: awake, listening for request..."
                 }
-                override fun onBeginningOfSpeech() = Unit
+                override fun onBeginningOfSpeech() {
+                    latencyTrace?.speechBeginMs = SystemClock.elapsedRealtime()
+                    markLatency("speech began")
+                }
                 override fun onRmsChanged(rmsdB: Float) = Unit
                 override fun onBufferReceived(buffer: ByteArray?) = Unit
                 override fun onEndOfSpeech() {
+                    latencyTrace?.speechEndMs = SystemClock.elapsedRealtime()
+                    markLatency("speech ended")
                     handsFreeStatus.text = "QuietOS: processing..."
                 }
                 override fun onError(error: Int) {
@@ -814,6 +832,8 @@ class MainActivity : AppCompatActivity() {
                     recognitionSessionActive = false
                     if (!handsFreeEnabled) return
                     handsFreeController.speechReceived()
+                    latencyTrace?.recognitionResultMs = SystemClock.elapsedRealtime()
+                    markLatency("speech result")
                     val heard = results
                         ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         ?.firstOrNull()
@@ -877,6 +897,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleVoiceInput(spoken: String) {
         val normalizedSpeech = voiceTextNormalizer.normalize(spoken)
+        latencyTrace?.routeCompleteMs = SystemClock.elapsedRealtime()
+        markLatency("QuietOS route complete")
         transcript.append("\nJon (voice): $spoken\n")
         if (normalizedSpeech != spoken) {
             transcript.append("QuietOS heard/corrected: $normalizedSpeech\n")
