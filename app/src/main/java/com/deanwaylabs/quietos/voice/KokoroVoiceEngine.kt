@@ -30,6 +30,9 @@ class KokoroVoiceEngine(private val context: Context) {
     data class Metrics(
         val loadMs: Long,
         val synthesisMs: Long,
+        val pcmMs: Long,
+        val audioSetupMs: Long,
+        val timeToPlaybackMs: Long,
         val audioDurationMs: Long,
         val speakerId: Int,
         val sampleRate: Int,
@@ -86,6 +89,7 @@ class KokoroVoiceEngine(private val context: Context) {
     @Synchronized
     fun speak(text: String, speakerId: Int = 0, speed: Float = 1.0f): Metrics {
         require(text.isNotBlank()) { "Cannot synthesize blank text." }
+        val speakStarted = System.nanoTime()
         val engine = tts ?: run {
             load()
             requireNotNull(tts)
@@ -106,12 +110,15 @@ class KokoroVoiceEngine(private val context: Context) {
         val synthesisMs = (System.nanoTime() - started) / 1_000_000
         require(audio.samples.isNotEmpty()) { "Kokoro returned no audio samples." }
 
+        val pcmStarted = System.nanoTime()
         val pcm = ShortArray(audio.samples.size) { i ->
             (audio.samples[i].coerceIn(-1f, 1f) * Short.MAX_VALUE)
                 .roundToInt()
                 .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
                 .toShort()
         }
+        val pcmMs = (System.nanoTime() - pcmStarted) / 1_000_000
+        val audioSetupStarted = System.nanoTime()
         val minBuffer = AudioTrack.getMinBufferSize(
             audio.sampleRate,
             AudioFormat.CHANNEL_OUT_MONO,
@@ -140,9 +147,15 @@ class KokoroVoiceEngine(private val context: Context) {
                 output.play()
             }
 
+        val audioSetupMs = (System.nanoTime() - audioSetupStarted) / 1_000_000
+        val timeToPlaybackMs = (System.nanoTime() - speakStarted) / 1_000_000
+
         return Metrics(
             loadMs = lastLoadMs,
             synthesisMs = synthesisMs,
+            pcmMs = pcmMs,
+            audioSetupMs = audioSetupMs,
+            timeToPlaybackMs = timeToPlaybackMs,
             audioDurationMs = (audio.samples.size * 1000L) / audio.sampleRate,
             speakerId = speakerId,
             sampleRate = audio.sampleRate,
