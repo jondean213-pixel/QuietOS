@@ -11,7 +11,6 @@ import com.k2fsa.sherpa.onnx.OfflineTtsKokoroModelConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig
 import java.io.File
 import kotlin.math.roundToInt
-import kotlin.math.min
 
 /**
  * Isolated neural voice layer for the #146 keeper.
@@ -164,6 +163,7 @@ class KokoroVoiceEngine(private val context: Context) {
 
         // Continue the remainder after first audio is already playing. This keeps
         // the first-audio latency low without changing Gemma's generated answer.
+        var totalAudioDurationMs = (audio.samples.size * 1000L) / audio.sampleRate
         if (remaining.isNotBlank()) {
             val generation = ++playbackGeneration
             Thread {
@@ -226,7 +226,7 @@ class KokoroVoiceEngine(private val context: Context) {
             pcmMs = pcmMs,
             audioSetupMs = audioSetupMs,
             timeToPlaybackMs = timeToPlaybackMs,
-            audioDurationMs = (audio.samples.size * 1000L) / audio.sampleRate,
+            audioDurationMs = totalAudioDurationMs,
             speakerId = speakerId,
             sampleRate = audio.sampleRate,
             sampleCount = audio.samples.size,
