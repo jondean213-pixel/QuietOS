@@ -653,6 +653,7 @@ class MainActivity : AppCompatActivity() {
                         runOnUiThread {
                             if (utteranceId == activeTtsUtteranceId) {
                                 activeTtsUtteranceId = null
+                                awaitingGemmaCommand = false
                                 returnToWakeIdle()
                             }
                         }
