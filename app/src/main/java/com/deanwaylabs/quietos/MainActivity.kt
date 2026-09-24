@@ -642,6 +642,7 @@ class MainActivity : AppCompatActivity() {
                         runOnUiThread {
                             if (utteranceId == activeTtsUtteranceId) {
                                 activeTtsUtteranceId = null
+                                awaitingGemmaCommand = false
                                 returnToWakeIdle()
                             }
                         }
@@ -680,7 +681,10 @@ class MainActivity : AppCompatActivity() {
                     markLatency("Emma synthesis complete / playback started")
                     appendLatencySummary()
                     neuralVoiceStatus.text = "Gemma voice: Emma | synth " + metrics.synthesisMs + " ms | audio " + metrics.audioDurationMs + " ms"
-                    handsFreeStatus.postDelayed({ returnToWakeIdle() }, metrics.audioDurationMs + 250L)
+                    handsFreeStatus.postDelayed({
+                        awaitingGemmaCommand = false
+                        returnToWakeIdle()
+                    }, metrics.audioDurationMs + 250L)
                 } catch (t: Throwable) {
                     neuralVoiceStatus.text = "Neural voice FAILED: " + (t.message ?: t.javaClass.simpleName)
                     speakGemmaWithSystemFallback(text)
@@ -693,6 +697,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun speakGemmaWithSystemFallback(text: String) {
         if (!ttsReady || text.isBlank()) {
+            awaitingGemmaCommand = false
             returnToWakeIdle()
             return
         }
@@ -708,6 +713,8 @@ class MainActivity : AppCompatActivity() {
         send.isEnabled = false
         transcript.append("\nJon: "+message+"\nGemma: ")
         status.text = "Gemma status: generating..."
+        awaitingGemmaCommand = true
+        wakeWordSpotter?.stop()
         lifecycleScope.launch {
             try {
                 latencyTrace?.gemmaStartMs = SystemClock.elapsedRealtime()
@@ -721,6 +728,8 @@ class MainActivity : AppCompatActivity() {
                 if (reply.isBlank()) {
                     transcript.append("[EMPTY RESPONSE]\n")
                     status.text = "Gemma generation FAILED: empty response after ${elapsed} ms"
+                    awaitingGemmaCommand = false
+                    returnToWakeIdle()
                 } else {
                     transcript.append(reply+"\n[response "+elapsed+" ms]\n")
                     speakGemma(reply)
@@ -731,6 +740,8 @@ class MainActivity : AppCompatActivity() {
             } catch (t: Throwable) {
                 transcript.append("[FAILED: "+t.javaClass.simpleName+": "+(t.message ?: "no message")+"]\n")
                 status.text = "Gemma generation FAILED: "+t.javaClass.simpleName
+                awaitingGemmaCommand = false
+                returnToWakeIdle()
             } finally {
                 send.isEnabled = model.state == ModelState.READY
             }
@@ -874,7 +885,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun returnToWakeIdle() {
-        if (!handsFreeEnabled) return
+        if (!handsFreeEnabled || awaitingGemmaCommand) return
         handsFreeController.readyForNextUtterance()
         handsFreeStatus.text = "QuietOS: idle, say \"Gemma\""
         handsFreeStatus.postDelayed({
@@ -897,13 +908,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleVoiceInput(spoken: String) {
         val normalizedSpeech = voiceTextNormalizer.normalize(spoken)
-        latencyTrace?.routeCompleteMs = SystemClock.elapsedRealtime()
-        markLatency("QuietOS route complete")
         transcript.append("\nJon (voice): $spoken\n")
         if (normalizedSpeech != spoken) {
             transcript.append("QuietOS heard/corrected: $normalizedSpeech\n")
         }
-        when (val route = voiceRouter.route(normalizedSpeech)) {
+        val route = voiceRouter.route(normalizedSpeech)
+        latencyTrace?.routeCompleteMs = SystemClock.elapsedRealtime()
+        markLatency("QuietOS route complete")
+        when (route) {
             is com.deanwaylabs.quietos.voice.VoiceRoute -> when (route.command) {
                 VoiceCommand.SUMMARIZE_DIGEST -> {
                     transcript.append("QuietOS: voice command accepted — summarize digest.\n")
