@@ -852,9 +852,15 @@ class MainActivity : AppCompatActivity() {
                         ?.firstOrNull()
                         ?.trim()
                         .orEmpty()
-                    if (heard.isNotEmpty()) handleVoiceInput(heard)
-                    else transcript.append("\nQuietOS: no command was recognized.\n")
-                    returnToWakeIdle()
+                    if (heard.isNotEmpty()) {
+                        handleVoiceInput(heard)
+                        // Conversational work owns the audio path until Gemma/Emma finish.
+                        // Deterministic QuietOS commands return to wake-idle immediately.
+                        if (!awaitingGemmaCommand) returnToWakeIdle()
+                    } else {
+                        transcript.append("\nQuietOS: no command was recognized.\n")
+                        returnToWakeIdle()
+                    }
                 }
                 override fun onPartialResults(partialResults: Bundle?) = Unit
                 override fun onEvent(eventType: Int, params: Bundle?) = Unit
