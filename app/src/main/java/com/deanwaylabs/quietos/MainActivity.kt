@@ -675,6 +675,10 @@ class MainActivity : AppCompatActivity() {
             handsFreeStatus.text = "Gemma: speaking..."
             lifecycleScope.launch {
                 try {
+                    // Load Emma before timing synthesis so first-use model startup is
+                    // visible separately and later turns can reuse the warm engine.
+                    val emmaLoadMs = withContext(Dispatchers.Default) { kokoroVoice.load() }
+                    transcript.append("[Emma ready: load " + emmaLoadMs + " ms]\n")
                     latencyTrace?.emmaStartMs = SystemClock.elapsedRealtime()
                     markLatency("QuietOS handed response to Emma")
                     val metrics = withContext(Dispatchers.Default) { kokoroVoice.speak(text, 7, 1.0f) }
