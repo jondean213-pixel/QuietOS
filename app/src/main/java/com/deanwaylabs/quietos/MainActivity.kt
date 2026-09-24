@@ -803,6 +803,14 @@ class MainActivity : AppCompatActivity() {
         handsFreeStatus.text = "QuietOS: idle, say \"Gemma\""
         transcript.append("\nQuietOS: local Gemma wake detector armed.\n")
         wakeWordSpotter?.start()
+
+        // Emma is reused across turns. Warm it while QuietOS is idle so the first
+        // spoken answer does not pay Kokoro startup cost after Gemma finishes.
+        if (kokoroVoice.isInstalled()) {
+            lifecycleScope.launch(Dispatchers.Default) {
+                runCatching { kokoroVoice.load() }
+            }
+        }
     }
 
     private fun pauseHandsFreeForExternalAction() {
