@@ -11,6 +11,7 @@ import com.k2fsa.sherpa.onnx.OfflineTtsKokoroModelConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig
 import java.io.File
 import kotlin.math.roundToInt
+import kotlin.math.min
 
 /**
  * Isolated neural voice layer for the #146 keeper.
@@ -42,6 +43,7 @@ class KokoroVoiceEngine(private val context: Context) {
     private var tts: OfflineTts? = null
     private var track: AudioTrack? = null
     private var lastLoadMs: Long = 0
+    private var playbackGeneration: Long = 0
 
     fun isInstalled(): Boolean {
         val d = modelDir()
@@ -96,11 +98,21 @@ class KokoroVoiceEngine(private val context: Context) {
         }
         stopPlayback()
 
-        // Non-callback generation is deliberate. It avoids the Android JNI callback
-        // path while we establish the first physical Kokoro baseline.
+        // Start Emma with the first natural sentence instead of forcing Jon to wait
+        // for the entire reply to synthesize before hearing anything.
+        val firstSentenceEnd = text.indexOfFirst { it == '.' || it == '!' || it == '?' }
+        val firstSegment = if (firstSentenceEnd in 0 until text.lastIndex) {
+            text.substring(0, firstSentenceEnd + 1).trim()
+        } else {
+            text.trim()
+        }
+        val remaining = if (firstSegment.length < text.length) {
+            text.substring(firstSegment.length).trim()
+        } else ""
+
         val started = System.nanoTime()
         val audio = engine.generateWithConfig(
-            text = text,
+            text = firstSegment,
             config = GenerationConfig(
                 sid = speakerId,
                 speed = speed,
@@ -149,6 +161,64 @@ class KokoroVoiceEngine(private val context: Context) {
 
         val audioSetupMs = (System.nanoTime() - audioSetupStarted) / 1_000_000
         val timeToPlaybackMs = (System.nanoTime() - speakStarted) / 1_000_000
+
+        // Continue the remainder after first audio is already playing. This keeps
+        // the first-audio latency low without changing Gemma's generated answer.
+        if (remaining.isNotBlank()) {
+            val generation = ++playbackGeneration
+            Thread {
+                runCatching {
+                    val rest = engine.generateWithConfig(
+                        text = remaining,
+                        config = GenerationConfig(
+                            sid = speakerId,
+                            speed = speed,
+                            silenceScale = 0.2f,
+                        )
+                    )
+                    if (rest.samples.isNotEmpty() && generation == playbackGeneration) {
+                        val restPcm = ShortArray(rest.samples.size) { i ->
+                            (rest.samples[i].coerceIn(-1f, 1f) * Short.MAX_VALUE)
+                                .roundToInt()
+                                .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+                                .toShort()
+                        }
+                        val firstDurationMs = (audio.samples.size * 1000L) / audio.sampleRate
+                        Thread.sleep(firstDurationMs)
+                        if (generation == playbackGeneration) {
+                            val restBuffer = AudioTrack.getMinBufferSize(
+                                rest.sampleRate,
+                                AudioFormat.CHANNEL_OUT_MONO,
+                                AudioFormat.ENCODING_PCM_16BIT
+                            ).coerceAtLeast(restPcm.size * 2)
+                            val nextTrack = AudioTrack.Builder()
+                                .setAudioAttributes(
+                                    AudioAttributes.Builder()
+                                        .setUsage(AudioAttributes.USAGE_ASSISTANT)
+                                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                                        .build()
+                                )
+                                .setAudioFormat(
+                                    AudioFormat.Builder()
+                                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                                        .setSampleRate(rest.sampleRate)
+                                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                                        .build()
+                                )
+                                .setBufferSizeInBytes(restBuffer)
+                                .setTransferMode(AudioTrack.MODE_STATIC)
+                                .build()
+                            nextTrack.write(restPcm, 0, restPcm.size)
+                            nextTrack.play()
+                            synchronized(this@KokoroVoiceEngine) {
+                                track?.release()
+                                track = nextTrack
+                            }
+                        }
+                    }
+                }
+            }.start()
+        }
 
         return Metrics(
             loadMs = lastLoadMs,
