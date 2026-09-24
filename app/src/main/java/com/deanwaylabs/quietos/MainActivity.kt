@@ -681,7 +681,8 @@ class MainActivity : AppCompatActivity() {
                     latencyTrace?.emmaCompleteMs = SystemClock.elapsedRealtime()
                     markLatency("Emma synthesis complete / playback started")
                     appendLatencySummary()
-                    neuralVoiceStatus.text = "Gemma voice: Emma | synth " + metrics.synthesisMs + " ms | audio " + metrics.audioDurationMs + " ms"
+                    neuralVoiceStatus.text = "Gemma voice: Emma | load " + metrics.loadMs + " ms | synth " + metrics.synthesisMs + " ms | PCM " + metrics.pcmMs + " ms | setup " + metrics.audioSetupMs + " ms | to-play " + metrics.timeToPlaybackMs + " ms | audio " + metrics.audioDurationMs + " ms"
+                    transcript.append("[Emma wiring: load " + metrics.loadMs + " ms | synth " + metrics.synthesisMs + " ms | PCM " + metrics.pcmMs + " ms | setup " + metrics.audioSetupMs + " ms | to-play " + metrics.timeToPlaybackMs + " ms]\n")
                     handsFreeStatus.postDelayed({
                         awaitingGemmaCommand = false
                         returnToWakeIdle()
