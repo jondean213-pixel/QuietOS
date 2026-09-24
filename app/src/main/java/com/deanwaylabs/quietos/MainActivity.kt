@@ -729,6 +729,14 @@ class MainActivity : AppCompatActivity() {
                 val result = model.send(message)
                 latencyTrace?.gemmaCompleteMs = SystemClock.elapsedRealtime()
                 markLatency("Gemma returned to QuietOS")
+                val gemmaStart = latencyTrace?.gemmaStartMs
+                if (gemmaStart != null) {
+                    val firstChunkAt = gemmaStart + result.metrics.timeToFirstChunkMs
+                    val wakeAt = latencyTrace?.wakeMs
+                    if (wakeAt != null) {
+                        transcript.append("[Gemma first chunk: +" + (firstChunkAt - wakeAt) + " ms from wake | " + result.metrics.timeToFirstChunkMs + " ms from Gemma handoff]\n")
+                    }
+                }
                 val reply = result.text
                 val elapsed = (System.nanoTime() - started) / 1_000_000
                 if (reply.isBlank()) {
