@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.provider.Settings
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
@@ -12,6 +13,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
@@ -122,6 +124,20 @@ class MainActivity : AppCompatActivity() {
             setTextColor(textColor)
         }
         root.addView(attentionStatus)
+        val listenerStatus = TextView(this).apply {
+            textSize = 13f
+            setTextColor(textColor)
+            text = "Listener: checking..."
+        }
+        root.addView(listenerStatus)
+        root.addView(button("Open notification access settings") {
+            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+        })
+        lifecycleScope.launch {
+            val enabled = NotificationManagerCompat.getEnabledListenerPackages(this@MainActivity)
+                .contains(packageName)
+            listenerStatus.text = if (enabled) "Listener: ENABLED" else "Listener: DISABLED - tap above to enable"
+        }
         interceptionButton = button("QuietOS Attention Mode: OFF") {
             val prefs = getSharedPreferences("quietos_attention", MODE_PRIVATE)
             val enabled = prefs.getBoolean("interception_enabled", false)
