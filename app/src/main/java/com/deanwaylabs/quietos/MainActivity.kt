@@ -1,12 +1,8 @@
 package com.deanwaylabs.quietos
 
-import android.app.Activity
 import android.app.AlertDialog
-import android.app.role.RoleManager
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.view.View
@@ -17,16 +13,13 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.lifecycleScope
 import com.deanwaylabs.quietos.ai.LiteRtGemmaModel
 import com.deanwaylabs.quietos.ai.ModelState
 import com.deanwaylabs.quietos.attention.AttentionClass
 import com.deanwaylabs.quietos.attention.AttentionRepository
-import com.deanwaylabs.quietos.messages.MessageSpamLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -47,19 +40,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var choose: Button
     private lateinit var attentionStatus: TextView
     private lateinit var interceptionButton: Button
-    private lateinit var messageSpamStatus: TextView
-    private lateinit var messageSpamButton: Button
     private val attentionRepository by lazy { AttentionRepository(this) }
-
-    private val callScreeningRoleLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            updateCallScreeningStatus()
-        }
-
-    private val smsRoleLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            updateSmsRoleStatus()
-        }
 
     private val picker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -172,33 +153,6 @@ class MainActivity : AppCompatActivity() {
         }
         root.addView(bucketRow)
         root.addView(button("Summarize digest") { summarizeDigest() })
-
-        // Spam protection
-        root.addView(label("Spam Protection"))
-        messageSpamStatus = TextView(this).apply {
-            textSize = 13f
-            setTextColor(textColor)
-        }
-        root.addView(messageSpamStatus)
-        messageSpamButton = button("Enable Spam Message Protection") { toggleMessageSpam() }
-        root.addView(messageSpamButton)
-        root.addView(button("View spam message log") { showMessageSpamLog() })
-
-        val callScreeningStatus = TextView(this).apply {
-            tag = "call_screening_status"
-            textSize = 13f
-            setTextColor(textColor)
-        }
-        root.addView(callScreeningStatus)
-        root.addView(button("Enable Spam Call Protection") { requestCallScreeningRole() })
-
-        val smsRoleStatus = TextView(this).apply {
-            tag = "sms_role_status"
-            textSize = 13f
-            setTextColor(textColor)
-        }
-        root.addView(smsRoleStatus)
-        root.addView(button("Set QuietOS as SMS handler") { requestSmsRole() })
 
         val scroll = ScrollView(this).apply {
             isFillViewport = true
@@ -399,98 +353,6 @@ $digestContext"""
         }
     }
 
-    // ---------- Spam protection ----------
-
-    private fun toggleMessageSpam() {
-        val prefs = getSharedPreferences("quietos_message_spam", MODE_PRIVATE)
-        val enabled = prefs.getBoolean("enabled", false)
-        prefs.edit().putBoolean("enabled", !enabled).apply()
-        updateMessageSpamStatus()
-    }
-
-    private fun updateMessageSpamStatus() {
-        val enabled = getSharedPreferences("quietos_message_spam", MODE_PRIVATE)
-            .getBoolean("enabled", false)
-        val count = MessageSpamLog(this).readAll().size
-        messageSpamStatus.text = "Spam Message Protection: " +
-            if (enabled) "ACTIVE | logged $count" else "INACTIVE | logged $count"
-        messageSpamButton.text = if (enabled) "Disable Spam Message Protection" else "Enable Spam Message Protection"
-    }
-
-    private fun showMessageSpamLog() {
-        val records = MessageSpamLog(this).readAll()
-        val body = if (records.isEmpty()) {
-            "No SMS spam decisions logged yet."
-        } else {
-            records.take(40).joinToString("\n\n")
-        }
-        AlertDialog.Builder(this)
-            .setTitle("Spam Message Log • ${records.size}")
-            .setView(ScrollView(this).apply {
-                addView(TextView(this@MainActivity).apply {
-                    text = body
-                    textSize = 16f
-                    val space = (20 * resources.displayMetrics.density).toInt()
-                    setPadding(space, space, space, space)
-                })
-            })
-            .setPositiveButton("BACK") { dialog, _ -> dialog.dismiss() }
-            .show()
-    }
-
-    private fun requestCallScreeningRole() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            transcript.append("\nQuietOS: Android 10 or newer is required for the call-screening role.\n")
-            return
-        }
-        val roleManager = getSystemService(RoleManager::class.java)
-        if (!roleManager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING)) {
-            transcript.append("\nQuietOS: call screening is not available on this device.\n")
-            return
-        }
-        if (roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)) {
-            transcript.append("\nQuietOS: Spam Call Protection is already active.\n")
-            updateCallScreeningStatus()
-            return
-        }
-        callScreeningRoleLauncher.launch(roleManager.createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING))
-    }
-
-    private fun updateCallScreeningStatus() {
-        val statusView = findTaggedTextView(findViewById(android.R.id.content), "call_screening_status") ?: return
-        val active = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-            getSystemService(RoleManager::class.java).let {
-                it.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING) && it.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)
-            }
-        statusView.text = if (active) "Spam Call Protection: ACTIVE" else "Spam Call Protection: INACTIVE"
-    }
-
-    private fun requestSmsRole() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            transcript.append("\nQuietOS: Android 10 or newer is required for the SMS role.\n")
-            return
-        }
-        val roleManager = getSystemService(RoleManager::class.java)
-        if (!roleManager.isRoleAvailable(RoleManager.ROLE_SMS)) {
-            transcript.append("\nQuietOS: the SMS role is not available on this device.\n")
-            return
-        }
-        if (roleManager.isRoleHeld(RoleManager.ROLE_SMS)) {
-            updateSmsRoleStatus()
-            return
-        }
-        smsRoleLauncher.launch(roleManager.createRequestRoleIntent(RoleManager.ROLE_SMS))
-    }
-
-    private fun updateSmsRoleStatus() {
-        val statusView = findTaggedTextView(findViewById(android.R.id.content), "sms_role_status") ?: return
-        val active = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-            getSystemService(RoleManager::class.java).let {
-                it.isRoleAvailable(RoleManager.ROLE_SMS) && it.isRoleHeld(RoleManager.ROLE_SMS)
-            }
-        statusView.text = if (active) "SMS Handler: QuietOS ACTIVE" else "SMS Handler: system messaging app"
-    }
-
     // ---------- Helpers ----------
 
     private fun findTaggedTextView(view: View, wantedTag: String): TextView? {
@@ -513,9 +375,6 @@ $digestContext"""
     override fun onResume() {
         super.onResume()
         if (::attentionStatus.isInitialized) refreshAttentionLog()
-        updateCallScreeningStatus()
-        updateSmsRoleStatus()
-        if (::messageSpamStatus.isInitialized) updateMessageSpamStatus()
     }
 
     override fun onDestroy() {
