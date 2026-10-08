@@ -33,7 +33,6 @@ kotlin {
 }
 
 dependencies {
-    implementation(files("libs/sherpa-onnx-1.13.8.aar"))
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.activity:activity-ktx:1.10.1")

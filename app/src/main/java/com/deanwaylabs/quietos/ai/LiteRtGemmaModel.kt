@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
-class LiteRtQwenModel : LocalModel {
+class LiteRtGemmaModel : LocalModel {
     @Volatile
     override var state: ModelState = ModelState.UNLOADED
         private set
@@ -36,7 +36,7 @@ class LiteRtQwenModel : LocalModel {
             val createdConversation = created.createConversation(
                 ConversationConfig(
                     systemInstruction = Contents.of(
-                        """You are Gemma, Jon's personal assistant. Speak directly to Jon. Respond naturally to what he just said. Be warm, familiar, concise, and clever when it fits. Never invent facts, experiences, actions, or memories.\n"""
+                        """You are QuietOS, a quiet on-device assistant. Answer directly and concisely. Never invent facts, experiences, actions, or memories.\n"""
                     ),
                     prefillPrefaceOnInit = true,
                     maxOutputToken = 64,
@@ -106,7 +106,7 @@ class LiteRtQwenModel : LocalModel {
             val recovered = activeEngine.createConversation(
                 ConversationConfig(
                     systemInstruction = Contents.of(
-                        """You are Gemma, Jon's personal assistant. Speak directly to Jon. Respond naturally to what he just said. Be warm, familiar, concise, and clever when it fits. Never invent facts, experiences, actions, or memories.\n"""
+                        """You are QuietOS, a quiet on-device assistant. Answer directly and concisely. Never invent facts, experiences, actions, or memories.\n"""
                     ),
                     prefillPrefaceOnInit = true,
                     maxOutputToken = 64,
@@ -126,7 +126,7 @@ class LiteRtQwenModel : LocalModel {
             val recovered = activeEngine.createConversation(
                 ConversationConfig(
                     systemInstruction = Contents.of(
-                        """You are Gemma, Jon's personal assistant. Speak directly to Jon. Respond naturally to what he just said. Be warm, familiar, concise, and clever when it fits. Never invent facts, experiences, actions, or memories.\n"""
+                        """You are QuietOS, a quiet on-device assistant. Answer directly and concisely. Never invent facts, experiences, actions, or memories.\n"""
                     ),
                     prefillPrefaceOnInit = true,
                     maxOutputToken = 64,
