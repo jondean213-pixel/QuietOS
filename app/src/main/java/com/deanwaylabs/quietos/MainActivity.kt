@@ -7,7 +7,6 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import android.view.View
 import android.widget.Button
-import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -34,9 +33,7 @@ import java.io.FileOutputStream
 class MainActivity : AppCompatActivity() {
     private val model = LiteRtGemmaModel()
     private lateinit var status: TextView
-    private lateinit var transcript: TextView
-    private lateinit var input: EditText
-    private lateinit var send: Button
+    private lateinit var log: TextView
     private lateinit var choose: Button
     private lateinit var attentionStatus: TextView
     private lateinit var interceptionButton: Button
@@ -105,31 +102,18 @@ class MainActivity : AppCompatActivity() {
         choose = button("Choose model file (.litertlm)") { launchModelPicker() }
         root.addView(choose)
 
-        // Conversation
-        root.addView(label("Conversation"))
-        transcript = TextView(this).apply {
-            textSize = 15f
+        // Activity log (read-only)
+        root.addView(label("Log"))
+        log = TextView(this).apply {
+            textSize = 14f
             setTextColor(textColor)
         }
-        val transcriptScroll = ScrollView(this).apply {
+        root.addView(ScrollView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1.5f
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
             )
-            addView(transcript)
-        }
-        root.addView(transcriptScroll)
-
-        val inputRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        input = EditText(this).apply {
-            hint = "Message QuietOS"
-            setTextColor(textColor)
-            setHintTextColor(android.graphics.Color.rgb(140, 150, 170))
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-        }
-        send = button("Send") { sendMessage() }.apply { isEnabled = false }
-        inputRow.addView(input)
-        inputRow.addView(send)
-        root.addView(inputRow)
+            addView(log)
+        })
 
         // Attention engine
         root.addView(label("Attention Engine"))
@@ -174,16 +158,14 @@ class MainActivity : AppCompatActivity() {
                 ?.maxByOrNull { it.lastModified() }
         } ?: return
         choose.isEnabled = false
-        send.isEnabled = false
         status.text = "Model: loading saved ${existing.name}..."
         try {
             val metrics = model.load(existing.absolutePath)
             status.text = "Model READY | load ${metrics.loadTimeMs} ms | warmup ${metrics.warmupTimeMs} ms"
-            transcript.append("\nQuietOS: saved model loaded automatically.\n")
-            send.isEnabled = true
+            log.append("\nQuietOS: saved model loaded automatically.\n")
         } catch (t: Throwable) {
             status.text = "Saved model load FAILED: ${t.message ?: t.javaClass.simpleName}"
-            transcript.append("\nQuietOS: saved model failed to load. Choose a model file to replace it.\n")
+            log.append("\nQuietOS: saved model failed to load. Choose a model file to replace it.\n")
         } finally {
             choose.isEnabled = true
         }
@@ -191,7 +173,6 @@ class MainActivity : AppCompatActivity() {
 
     private suspend fun importAndLoad(uri: Uri) {
         choose.isEnabled = false
-        send.isEnabled = false
         status.text = "Model: importing..."
         try {
             val displayName = queryDisplayName(uri) ?: "model.litertlm"
@@ -209,42 +190,12 @@ class MainActivity : AppCompatActivity() {
             status.text = "Model: loading ${local.name}..."
             val metrics = model.load(local.absolutePath)
             status.text = "Model READY | load ${metrics.loadTimeMs} ms | warmup ${metrics.warmupTimeMs} ms"
-            transcript.append("\nQuietOS: model loaded locally.\n")
-            send.isEnabled = true
+            log.append("\nQuietOS: model loaded locally.\n")
         } catch (t: Throwable) {
             status.text = "Model load FAILED: ${t.message ?: t.javaClass.simpleName}"
-            transcript.append("\nQuietOS: model load failed.\n")
+            log.append("\nQuietOS: model load failed.\n")
         } finally {
             choose.isEnabled = true
-        }
-    }
-
-    private fun sendMessage() {
-        val message = input.text.toString().trim()
-        if (message.isEmpty()) return
-        input.text.clear()
-        send.isEnabled = false
-        transcript.append("\nYou: $message\nQuietOS: ")
-        status.text = "Model: generating..."
-        lifecycleScope.launch {
-            try {
-                val started = System.nanoTime()
-                val result = model.send(message)
-                val reply = result.text
-                val elapsed = (System.nanoTime() - started) / 1_000_000
-                if (reply.isBlank()) {
-                    transcript.append("[EMPTY RESPONSE]\n")
-                    status.text = "Generation FAILED: empty response after ${elapsed} ms"
-                } else {
-                    transcript.append(reply + "\n[response ${elapsed} ms]\n")
-                    status.text = "Model READY"
-                }
-            } catch (t: Throwable) {
-                transcript.append("[FAILED: ${t.javaClass.simpleName}: ${t.message ?: "no message"}]\n")
-                status.text = "Generation FAILED: ${t.javaClass.simpleName}"
-            } finally {
-                send.isEnabled = model.state == ModelState.READY
-            }
         }
     }
 
@@ -265,11 +216,11 @@ class MainActivity : AppCompatActivity() {
             .take(5)
 
         if (digest.isEmpty()) {
-            transcript.append("\nQuietOS: no DIGEST notifications are waiting.\n")
+            log.append("\nQuietOS: no DIGEST notifications are waiting.\n")
             return
         }
         if (model.state != ModelState.READY) {
-            transcript.append("\nQuietOS: model is not ready yet, so I kept the digest locally.\n")
+            log.append("\nQuietOS: model is not ready yet, so I kept the digest locally.\n")
             return
         }
 
@@ -282,20 +233,17 @@ class MainActivity : AppCompatActivity() {
 
 $digestContext"""
 
-        transcript.append("\nQuietOS: summarizing ${digest.size} DIGEST items locally.\n")
+        log.append("\nQuietOS: summarizing ${digest.size} DIGEST items locally.\n")
         status.text = "Model: summarizing digest..."
-        send.isEnabled = false
 
         lifecycleScope.launch {
             try {
                 val result = model.send(prompt)
-                transcript.append(result.text + "\n")
+                log.append(result.text + "\n")
                 status.text = "Model READY"
             } catch (t: Throwable) {
-                transcript.append("[DIGEST FAILED: ${t.javaClass.simpleName}: ${t.message ?: "no message"}]\n")
+                log.append("[DIGEST FAILED: ${t.javaClass.simpleName}: ${t.message ?: "no message"}]\n")
                 status.text = "Digest FAILED: ${t.javaClass.simpleName}"
-            } finally {
-                send.isEnabled = model.state == ModelState.READY
             }
         }
     }
